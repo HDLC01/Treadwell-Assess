@@ -18,9 +18,12 @@ export default function Home() {
           A behavioral and cognitive assessment platform: define the role&apos;s ideal
           behavioral range, send candidates one link, and see who actually fits.
         </p>
-        <p className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-xs text-slate-500">
-          Foundation build — candidate flow and hiring dashboard arrive in the next phases.
-        </p>
+        <a
+          href="/hire"
+          className="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-sky-500"
+        >
+          Open the Hiring Center
+        </a>
       </main>
       <footer className="absolute bottom-6 text-[11px] text-slate-600">
         Independent assessment — not affiliated with The Predictive Index.

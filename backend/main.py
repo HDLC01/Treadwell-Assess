@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import assessment, health
+from routers import assessment, health, jobs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("assess.app")
@@ -48,3 +48,4 @@ app.add_middleware(
 
 app.include_router(health.router, prefix="/api")
 app.include_router(assessment.router, prefix="/api")
+app.include_router(jobs.router, prefix="/api")
