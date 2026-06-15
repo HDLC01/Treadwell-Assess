@@ -9,12 +9,14 @@ import json
 import secrets
 from typing import Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
+from config import settings
 from db import connect
-from services.behavioral_scorer import FACTOR_NAMES
+from services import email_sender, report_pdf
+from services.behavioral_scorer import FACTOR_NAMES, band_label
 from services.fit_calculator import behavioral_fit_stars, cognitive_fit
 from services.profile_matcher import match_profiles_for_target
 from services.target_helpers import key_characteristics
@@ -266,3 +268,143 @@ def patch_candidate(candidate_id: str, body: CandidatePatch):
         if res.rowcount == 0:
             raise HTTPException(status_code=404, detail="Candidate not found")
     return {"ok": True}
+
+
+# ─── candidate report (detail / PDF / email) ──────────────────────────────────
+class EmailBody(BaseModel):
+    to: str = Field(min_length=3, max_length=320)
+
+
+def _build_report(conn, candidate_id: str) -> Optional[Dict]:
+    """Assemble the full per-candidate report used by the detail page, PDF, and email."""
+    cand = conn.execute(text(
+        "select c.id, c.full_name, c.email, c.bookmarked, c.created_at, "
+        "       j.id as job_id, j.name as job_name, j.behavioral_target, j.cognitive_target "
+        "from candidates c join jobs j on j.id = c.job_id where c.id = :c"
+    ), {"c": candidate_id}).mappings().first()
+    if cand is None:
+        return None
+
+    target = cand["behavioral_target"]
+    if isinstance(target, str):
+        target = json.loads(target)
+
+    # behavioral (latest)
+    behavioral = None
+    br = conn.execute(text(
+        "select self_scores, self_concept_scores, synthesis_scores, reference_profile_id, created_at "
+        "from behavioral_results where candidate_id = :c order by created_at desc limit 1"
+    ), {"c": candidate_id}).mappings().first()
+    if br:
+        def _p(v):
+            return json.loads(v) if isinstance(v, str) else v
+        self_s, self_c, syn = _p(br["self_scores"]), _p(br["self_concept_scores"]), _p(br["synthesis_scores"])
+        factors = [
+            {"factor": f, "name": FACTOR_NAMES[f],
+             "self": self_s[f], "self_concept": self_c[f], "synthesis": syn[f],
+             "band": band_label(f, syn[f])}
+            for f in ("A", "B", "C", "D")
+        ]
+        profile = None
+        if br["reference_profile_id"] is not None:
+            p = conn.execute(text(
+                "select slug, name, tagline, description from reference_profiles where id = :i"
+            ), {"i": br["reference_profile_id"]}).mappings().first()
+            if p:
+                profile = dict(p)
+        behavioral = {
+            "assessed_at": str(br["created_at"]),
+            "factors": factors,
+            "reference_profile": profile,
+            "fit_stars": behavioral_fit_stars(syn, target),
+        }
+
+    # cognitive (latest)
+    cognitive = None
+    cr = conn.execute(text(
+        "select answers, raw_score, scaled_score, status, created_at "
+        "from cognitive_results where candidate_id = :c order by created_at desc limit 1"
+    ), {"c": candidate_id}).mappings().first()
+    if cr:
+        answers = cr["answers"]
+        if isinstance(answers, str):
+            answers = json.loads(answers)
+        cognitive = {
+            "taken_at": str(cr["created_at"]),
+            "raw_score": cr["raw_score"],
+            "scaled_score": cr["scaled_score"],
+            "num_items": len(answers) if answers else 0,
+            "status": cr["status"],
+            "fit": cognitive_fit(cr["scaled_score"], cand["cognitive_target"]),
+        }
+
+    return {
+        "candidate": {
+            "id": str(cand["id"]), "full_name": cand["full_name"],
+            "email": cand["email"], "bookmarked": cand["bookmarked"],
+        },
+        "job": {
+            "id": str(cand["job_id"]), "name": cand["job_name"],
+            "behavioral_target": target, "cognitive_target": cand["cognitive_target"],
+            "factor_names": FACTOR_NAMES, "scale_max": settings.COGNITIVE_SCALE_MAX,
+        },
+        "behavioral": behavioral,
+        "cognitive": cognitive,
+    }
+
+
+def _pdf_filename(full_name: str) -> str:
+    safe = "".join(ch if ch.isalnum() else "-" for ch in full_name).strip("-") or "candidate"
+    return f"treadwell-report-{safe}.pdf"
+
+
+@router.get("/candidates/{candidate_id}/report")
+def candidate_report(candidate_id: str):
+    with connect() as conn:
+        report = _build_report(conn, candidate_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    return report
+
+
+@router.get("/candidates/{candidate_id}/report.pdf")
+def candidate_report_pdf(candidate_id: str):
+    with connect() as conn:
+        report = _build_report(conn, candidate_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    pdf = report_pdf.build_report_pdf(report)
+    fname = _pdf_filename(report["candidate"]["full_name"])
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@router.post("/candidates/{candidate_id}/email")
+def email_candidate_report(candidate_id: str, body: EmailBody):
+    to = body.to.strip()
+    if "@" not in to:
+        raise HTTPException(status_code=422, detail="Enter a valid email address.")
+    with connect() as conn:
+        report = _build_report(conn, candidate_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    name = report["candidate"]["full_name"]
+    pdf = report_pdf.build_report_pdf(report)
+    try:
+        email_sender.send(
+            to=to,
+            subject=f"Assessment report — {name} ({report['job']['name']})",
+            body_text=(
+                f"Attached is the Treadwell Assess report for {name} "
+                f"(role: {report['job']['name']}).\n\n"
+                "Independent assessment - not affiliated with The Predictive Index."
+            ),
+            attachments=[(_pdf_filename(name), pdf, "application/pdf")],
+        )
+    except email_sender.EmailError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.detail)
+    return {"ok": True, "sent_to": to}

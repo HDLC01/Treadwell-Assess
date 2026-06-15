@@ -1,4 +1,4 @@
-import type { FactorScore } from "../lib/api";
+import { DISC_LETTER, type FactorScore } from "../lib/api";
 
 const SCALE_TICKS = [-3, -2, -1, 0, 1, 2, 3];
 
@@ -17,7 +17,7 @@ export default function FactorBars({ factors }: { factors: FactorScore[] }) {
         <div key={f.factor}>
           <div className="mb-1 flex items-baseline justify-between">
             <span className="text-sm font-bold text-slate-800">
-              ({f.factor}) {f.name}
+              ({DISC_LETTER[f.factor]}) {f.name}
             </span>
             <span className="text-xs font-semibold text-sky-700">{f.band}</span>
           </div>
