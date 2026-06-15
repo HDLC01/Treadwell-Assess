@@ -23,3 +23,8 @@ Thumbs.db
 # Local data / scratch
 backups/
 *.png
+# Reference/sample reports (may contain PII) — keep out of the public repo
+*.pdf
+
+# Playwright MCP scratch (snapshots/logs)
+.playwright-mcp/

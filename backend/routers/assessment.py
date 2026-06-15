@@ -17,7 +17,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
+from config import settings
 from db import connect
+from services import cognitive_scorer
 from services.behavioral_scorer import FACTOR_NAMES, band_label, score_assessment
 from services.profile_matcher import match_profile
 
@@ -35,6 +37,17 @@ class BehavioralBody(BaseModel):
     candidate_id: str
     checklist1_word_ids: List[int]  # "how others expect you to act at work"
     checklist2_word_ids: List[int]  # "the real you"
+
+
+class CogAnswer(BaseModel):
+    item_id: int
+    chosen: Optional[int] = None     # None = left unanswered (scored wrong)
+
+
+class CognitiveBody(BaseModel):
+    candidate_id: str
+    answers: List[CogAnswer]
+    expired: bool = False            # True when the timer ran out (auto-submit)
 
 
 def _get_link(conn, token: str):
@@ -151,3 +164,65 @@ def submit_behavioral(token: str, body: BehavioralBody):
             if profile else None
         ),
     }
+
+
+def _active_cognitive_items(conn, with_answer: bool):
+    cols = "id, item_type, prompt, options" + (", answer" if with_answer else "")
+    rows = conn.execute(
+        text(f"select {cols} from cognitive_items where active and not is_sample order by id")
+    ).mappings().all()
+    items = [dict(r) for r in rows]
+    for it in items:  # jsonb usually decodes to a list already; be defensive
+        if isinstance(it["options"], str):
+            it["options"] = json.loads(it["options"])
+    return items
+
+
+@router.get("/assess/{token}/cognitive")
+def get_cognitive(token: str):
+    """The timed cognitive test for this token. Correct-answer keys are NEVER
+    included — only id/type/prompt/options. The item set is deterministic per token."""
+    with connect() as conn:
+        _get_link(conn, token)
+        items = _active_cognitive_items(conn, with_answer=False)
+    administered = cognitive_scorer.select_items(items, token)
+    return {
+        "time_limit_sec": settings.COGNITIVE_TIME_LIMIT_SEC,
+        "num_items": len(administered),
+        "items": [
+            {"id": it["id"], "item_type": it["item_type"],
+             "prompt": it["prompt"], "options": it["options"]}
+            for it in administered
+        ],
+    }
+
+
+@router.post("/assess/{token}/cognitive")
+def submit_cognitive(token: str, body: CognitiveBody):
+    """Score the cognitive test. The administered set is rebuilt server-side from the
+    token (so the denominator can't be gamed) and graded against the hidden keys."""
+    with connect() as conn:
+        _get_link(conn, token)
+        cand = conn.execute(
+            text("select id from candidates where id = :c"), {"c": body.candidate_id}
+        ).first()
+        if cand is None:
+            raise HTTPException(status_code=404, detail="Candidate not found — start the assessment first.")
+
+        items = _active_cognitive_items(conn, with_answer=True)
+        administered = cognitive_scorer.select_items(items, token)
+        answers = {a.item_id: a.chosen for a in body.answers}
+        scored = cognitive_scorer.score(administered, answers)
+        status = "expired" if body.expired else "complete"
+
+        conn.execute(
+            text("insert into cognitive_results "
+                 "(candidate_id, answers, raw_score, scaled_score, status) "
+                 "values (:c, :ans, :raw, :scaled, :st)"),
+            {"c": body.candidate_id,
+             "ans": json.dumps([{"item_id": a.item_id, "chosen": a.chosen} for a in body.answers]),
+             "raw": scored["raw_score"], "scaled": scored["scaled_score"], "st": status},
+        )
+
+    # The candidate isn't shown their cognitive score — only that it's recorded.
+    return {"ok": True, "status": status, "num_items": scored["num_items"]}

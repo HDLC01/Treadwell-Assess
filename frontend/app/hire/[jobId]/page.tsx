@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  DISC_LETTER,
   FACTORS,
   getJob,
   getOrCreateLink,
@@ -16,6 +17,7 @@ import {
 } from "../../lib/api";
 import Stars from "../../components/Stars";
 import Sparkline from "../../components/Sparkline";
+import ArchetypeIcon from "../../components/ArchetypeIcon";
 
 const FACTOR_ENDS: Record<Factor, [string, string]> = {
   A: ["Collaborative", "Independent"],
@@ -160,7 +162,7 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
             return (
               <div key={f}>
                 <p className="mb-1 text-sm font-bold text-slate-800">
-                  ({f}) {job.factor_names[f]}
+                  ({DISC_LETTER[f]}) {job.factor_names[f]}
                 </p>
                 <div className="flex items-center gap-2 text-[11px] text-slate-500">
                   <span className="w-20 text-right">{FACTOR_ENDS[f][0]}</span>
@@ -265,8 +267,9 @@ function CandidatesTab({ jobId }: { jobId: string }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
-    setLoading(true);
-    listCandidates(jobId, {
+    // No synchronous setState here — `loading` starts true and is cleared in
+    // `finally`; refetches (search/page/bookmark) update the rows in place.
+    return listCandidates(jobId, {
       q: q || undefined,
       min_fit: minFit === "" ? undefined : Number(minFit),
       page,
@@ -278,7 +281,9 @@ function CandidatesTab({ jobId }: { jobId: string }) {
       })
       .finally(() => setLoading(false));
   }, [jobId, q, minFit, page]);
-  useEffect(refresh, [refresh]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const toggleBookmark = async (c: CandidateRow) => {
     await patchCandidate(c.id, { bookmarked: !c.bookmarked });
@@ -332,11 +337,25 @@ function CandidatesTab({ jobId }: { jobId: string }) {
               {rows.map((c) => (
                 <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <p className="font-bold text-slate-900">{c.full_name}</p>
+                    <Link
+                      href={`/hire/${jobId}/candidate/${c.id}`}
+                      className="font-bold text-slate-900 hover:text-sky-700 hover:underline"
+                    >
+                      {c.full_name}
+                    </Link>
                     {c.email && <p className="text-xs text-slate-500">{c.email}</p>}
                   </td>
                   <td className="px-4 py-3"><Stars value={c.behavioral_fit} /></td>
-                  <td className="px-4 py-3 text-slate-700">{c.profile_name ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {c.profile_name ? (
+                      <span className="flex items-center gap-2">
+                        <ArchetypeIcon slug={c.profile_slug} size={24} />
+                        {c.profile_name}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {c.assessed_at ? c.assessed_at.slice(0, 10) : "pending"}
                   </td>

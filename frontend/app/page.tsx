@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // Landing stub — Phase 1 foundation. The real surfaces land in later phases:
 // /a?t=<token>  candidate assessment flow
 // /hire         employer Hiring Center (jobs, targets, candidates)
@@ -18,12 +20,12 @@ export default function Home() {
           A behavioral and cognitive assessment platform: define the role&apos;s ideal
           behavioral range, send candidates one link, and see who actually fits.
         </p>
-        <a
+        <Link
           href="/hire"
           className="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-sky-500"
         >
           Open the Hiring Center
-        </a>
+        </Link>
       </main>
       <footer className="absolute bottom-6 text-[11px] text-slate-600">
         Independent assessment — not affiliated with The Predictive Index.

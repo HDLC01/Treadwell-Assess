@@ -34,8 +34,12 @@ imported. Shares only the physical VPS (50.6.110.215).
 ## Golden rules
 - **TEST LOCALLY FIRST.** Never push to GitHub or deploy to the VPS until it runs + passes
   local smoke tests AND Hanz has given the go-ahead.
-- Candidate-facing flow is **tokenized-link only** (no login). Employer side gets auth
-  (Google sign-in reuse — Phase 2; the API is open in local dev until then).
+- Candidate-facing flow is **tokenized-link only** (no login). Employer side has auth
+  (Supabase Google sign-in, `@wetreadwell.com` only — reuses the proposal tool's shared
+  Supabase project, AUTH ONLY; data stays in our Postgres). One `auth_gate` middleware
+  gates every `/api/*` except the candidate flow (`/api/assess/*`), health, and
+  `/api/public-config`. The gate is a **no-op until Supabase keys are set**, so the API
+  stays open in local dev (`settings.auth_enabled`).
 - Destructive actions need confirm dialogs; lists paginate at 25/page (house rules).
 
 ## Core model (Postgres)
@@ -55,9 +59,13 @@ imported. Shares only the physical VPS (50.6.110.215).
   checklist1, Synthesis = mean. Constants in `config.py` (`SCORE_SCALE`), calibratable
   from real data later (ML).
 - `profile_matcher.py` — nearest reference-profile ideal vector (Euclidean) on Synthesis.
+- `cognitive_scorer.py` — picks the items a token administers (deterministic per-token
+  shuffle, capped at `COGNITIVE_NUM_ITEMS`; rebuilt server-side on submit so the
+  denominator can't be gamed), grades vs the hidden answer keys → raw (correct count)
+  + scaled score on an original 0–`COGNITIVE_SCALE_MAX` normed scale (calibratable).
 - `fit_calculator.py` — per factor: in target range = 1.0 else linear falloff over 1σ;
-  average → 0–5 **Behavioral Fit** stars. Cognitive: score vs target → strong/moderate/low,
-  or `expired` via the link.
+  average → 0–5 **Behavioral Fit** stars. Cognitive: scaled score vs target →
+  strong/moderate/low (None when the job has no target); `expired` = timer ran out.
 
 ## Run locally
 - DB:       `docker compose up -d db`     (Postgres on 127.0.0.1:5434)
@@ -69,7 +77,27 @@ imported. Shares only the physical VPS (50.6.110.215).
 
 ## Status / phases (per the approved plan)
 1. ✅ Foundation: schema, seed (adjective bank + profiles), scoring engine, token flow
-2. Employer side: auth, jobs CRUD, Job Target UI, Candidates table
-3. Cognitive test (timed) + cognitive fit
-4. Candidate detail + Download/Email PDF reports
-5. Polish + deploy (Docker → nginx → certbot → assess.wetreadwell.com)
+2. ✅ Employer side: jobs CRUD, Job Target UI, Candidates table, **auth** (Supabase Google
+   sign-in gate + `/api/me`; `auth_supabase.py`, `routers/auth.py`, frontend `lib/auth.tsx`
+   / `RequireAuth` / `/login`; tested via `backend/auth_test.py`). Deploy TODO: add the
+   `/hire` redirect URLs to the shared Supabase + Google OAuth config (Phase 5).
+3. ✅ Cognitive test (timed) + cognitive fit: original 24-item bank (numerical/verbal/
+   abstract), `GET/POST /assess/{token}/cognitive` (answer keys never leave the server),
+   `cognitive_scorer.py`, timed one-question-at-a-time UI w/ auto-submit at zero. Admin
+   policy: administered to **every** candidate (score captured even without a target).
+   Config: `COGNITIVE_NUM_ITEMS=20`, `COGNITIVE_TIME_LIMIT_SEC=600`, `COGNITIVE_SCALE_MAX=30`.
+   Tested via `backend/cognitive_test.py`.
+4. ✅ Candidate detail + reports: per-candidate report page (`/hire/[jobId]/candidate/
+   [candidateId]`) with a DISC radar (`RadarChart`), cognitive donut (`CognitiveGauge`),
+   and a per-archetype emblem (`ArchetypeIcon` — 13 themed monoline SVG glyphs by slug,
+   also shown on the dashboard table + candidate completion screen);
+   `GET /candidates/{id}/report` (JSON), `/report.pdf` (fpdf2 via `report_pdf.py`, fetched
+   as a blob WITH the bearer header), `POST /candidates/{id}/email` (`email_sender.py`,
+   env-SMTP, graceful 503 until configured). Deploy TODO: set SMTP_* to enable live email.
+5. ⏳ Polish + deploy (Docker → nginx → certbot → assess.wetreadwell.com)  ← NEXT
+
+## Display convention — DISC letters
+Internal factor keys stay **A/B/C/D** everywhere (DB JSON, scoring, `behavioral_target`),
+but the UI + PDF show the public **DISC** letters: Dominance→**D**, Influence→**I**,
+Steadiness→**S**, Conscientiousness→**C**. Map: `DISC_LETTER` (frontend `lib/api.ts`,
+backend `report_pdf.py`). Never rename the keys — only the displayed letter.

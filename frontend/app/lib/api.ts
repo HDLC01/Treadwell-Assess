@@ -8,10 +8,19 @@ export class ApiError extends Error {
   }
 }
 
+// The auth provider pushes the current Supabase access token here so employer
+// API calls carry `Authorization: Bearer …`. Candidate (/assess) routes are
+// public, so the header is simply ignored there.
+let authToken: string | null = null;
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const auth: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
   const resp = await fetch(`/api${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    headers: { "Content-Type": "application/json", ...auth, ...(init?.headers || {}) },
   });
   if (!resp.ok) {
     let detail = resp.statusText;
@@ -29,6 +38,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // ── types ──────────────────────────────────────────────────────────────────
 export type Factor = "A" | "B" | "C" | "D";
 export const FACTORS: Factor[] = ["A", "B", "C", "D"];
+
+// Internal factor keys stay A/B/C/D (DB + scoring); the UI shows the public DISC
+// letters: Dominance→D, Influence→I, Steadiness→S, Conscientiousness→C.
+export const DISC_LETTER: Record<Factor, string> = { A: "D", B: "I", C: "S", D: "C" };
 
 export interface FactorScore {
   factor: Factor;
@@ -57,6 +70,30 @@ export interface BehavioralResult {
   result_id: string;
   factors: FactorScore[];
   reference_profile: ReferenceProfile | null;
+}
+
+export interface CognitiveItem {
+  id: number;
+  item_type: "numerical" | "verbal" | "abstract";
+  prompt: string;
+  options: string[];
+}
+
+export interface CognitiveTest {
+  time_limit_sec: number;
+  num_items: number;
+  items: CognitiveItem[];
+}
+
+export interface CognitiveAnswer {
+  item_id: number;
+  chosen: number | null;
+}
+
+export interface CognitiveResult {
+  ok: boolean;
+  status: "complete" | "expired";
+  num_items: number;
 }
 
 export type TargetRange = { low: number; high: number };
@@ -109,6 +146,36 @@ export interface CandidatesEnvelope {
   total_pages: number;
 }
 
+export interface BehavioralReportBlock {
+  assessed_at: string;
+  factors: FactorScore[];
+  reference_profile: ReferenceProfile | null;
+  fit_stars: number | null;
+}
+
+export interface CognitiveReportBlock {
+  taken_at: string;
+  raw_score: number;
+  scaled_score: number;
+  num_items: number;
+  status: "complete" | "expired";
+  fit: string | null;
+}
+
+export interface CandidateReport {
+  candidate: { id: string; full_name: string; email: string | null; bookmarked: boolean };
+  job: {
+    id: string;
+    name: string;
+    behavioral_target: BehavioralTarget | null;
+    cognitive_target: number | null;
+    factor_names: Record<Factor, string>;
+    scale_max: number;
+  };
+  behavioral: BehavioralReportBlock | null;
+  cognitive: CognitiveReportBlock | null;
+}
+
 // ── candidate flow ──────────────────────────────────────────────────────────
 export const getAssessment = (token: string) => request<AssessmentMeta>(`/assess/${token}`);
 export const startAssessment = (token: string, full_name: string, email: string) =>
@@ -131,6 +198,19 @@ export const submitBehavioral = (
     }),
   });
 
+export const getCognitive = (token: string) =>
+  request<CognitiveTest>(`/assess/${token}/cognitive`);
+export const submitCognitive = (
+  token: string,
+  candidate_id: string,
+  answers: CognitiveAnswer[],
+  expired: boolean,
+) =>
+  request<CognitiveResult>(`/assess/${token}/cognitive`, {
+    method: "POST",
+    body: JSON.stringify({ candidate_id, answers, expired }),
+  });
+
 // ── employer ────────────────────────────────────────────────────────────────
 export const listJobs = () => request<{ jobs: JobSummary[] }>(`/jobs`);
 export const createJob = (name: string, folder: string) =>
@@ -150,3 +230,27 @@ export const listCandidates = (id: string, params: { q?: string; min_fit?: numbe
 };
 export const patchCandidate = (id: string, patch: { bookmarked?: boolean }) =>
   request<{ ok: boolean }>(`/candidates/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+export const getCandidateReport = (id: string) =>
+  request<CandidateReport>(`/candidates/${id}/report`);
+export const emailReport = (id: string, to: string) =>
+  request<{ ok: boolean; sent_to: string }>(`/candidates/${id}/email`, {
+    method: "POST",
+    body: JSON.stringify({ to }),
+  });
+
+// PDF is binary + auth-gated, so fetch it as a blob WITH the bearer header
+// (a plain <a href> download wouldn't carry the Authorization header).
+export async function fetchReportPdf(id: string): Promise<Blob> {
+  const auth: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  const resp = await fetch(`/api/candidates/${id}/report.pdf`, { headers: auth });
+  if (!resp.ok) {
+    let detail = resp.statusText;
+    try {
+      detail = (await resp.json()).detail || detail;
+    } catch {
+      /* keep statusText */
+    }
+    throw new ApiError(resp.status, detail);
+  }
+  return resp.blob();
+}
