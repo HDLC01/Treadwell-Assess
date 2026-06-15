@@ -1,0 +1,6 @@
+# Shell scripts run on the Linux VPS — force LF so they aren't broken by CRLF.
+*.sh text eol=lf
+deploy/install-vps.sh text eol=lf
+ops/tw-up text eol=lf
+ops/tw-down text eol=lf
+ops/tw-status text eol=lf

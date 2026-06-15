@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Stop the Treadwell Assess stack (containers stay, data volume persists).
+set -euo pipefail
+cd /opt/treadwell-assess && docker compose --profile full stop

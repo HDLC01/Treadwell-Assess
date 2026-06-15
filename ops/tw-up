@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Bring up the full Treadwell Assess stack (db + api + web) on the VPS.
+set -euo pipefail
+cd /opt/treadwell-assess && docker compose --profile full up -d --build

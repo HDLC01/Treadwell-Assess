@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Show stack status + a quick health probe.
+set -euo pipefail
+cd /opt/treadwell-assess && docker compose --profile full ps
+echo "--- api health ---"
+curl -fsS http://127.0.0.1:8897/api/health && echo " OK" || echo "api DOWN"
