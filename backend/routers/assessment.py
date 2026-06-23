@@ -178,13 +178,32 @@ def _active_cognitive_items(conn, with_answer: bool):
     return items
 
 
+def _practice_items(conn):
+    """Untimed warm-up questions, drawn from the is_sample bank. These are NEVER
+    scored, so their answer keys ARE returned — the UI shows instant feedback so the
+    candidate learns the format before the real (timed, key-hidden) test."""
+    rows = conn.execute(
+        text("select id, item_type, prompt, options, answer from cognitive_items "
+             "where active and is_sample order by id limit :n"),
+        {"n": settings.COGNITIVE_PRACTICE_ITEMS},
+    ).mappings().all()
+    items = [dict(r) for r in rows]
+    for it in items:
+        if isinstance(it["options"], str):
+            it["options"] = json.loads(it["options"])
+    return items
+
+
 @router.get("/assess/{token}/cognitive")
 def get_cognitive(token: str):
-    """The timed cognitive test for this token. Correct-answer keys are NEVER
-    included — only id/type/prompt/options. The item set is deterministic per token."""
+    """The timed cognitive test for this token, plus an untimed practice round.
+    Real-test answer keys are NEVER included (only id/type/prompt/options) and the
+    real item set is deterministic per token; practice items DO include answers
+    (they're samples, never scored) so the UI can give instant feedback."""
     with connect() as conn:
         _get_link(conn, token)
         items = _active_cognitive_items(conn, with_answer=False)
+        practice = _practice_items(conn)
     administered = cognitive_scorer.select_items(items, token)
     return {
         "time_limit_sec": settings.COGNITIVE_TIME_LIMIT_SEC,
@@ -193,6 +212,11 @@ def get_cognitive(token: str):
             {"id": it["id"], "item_type": it["item_type"],
              "prompt": it["prompt"], "options": it["options"]}
             for it in administered
+        ],
+        "practice": [
+            {"id": it["id"], "item_type": it["item_type"], "prompt": it["prompt"],
+             "options": it["options"], "answer": it["answer"]}
+            for it in practice
         ],
     }
 

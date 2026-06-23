@@ -25,6 +25,7 @@ type Step =
   | "list2"
   | "bsubmitting"
   | "cog_intro"
+  | "practice"
   | "cog"
   | "csubmitting"
   | "done";
@@ -49,6 +50,9 @@ export default function AssessmentFlow() {
   const [cogAnswers, setCogAnswers] = useState<Map<number, number>>(new Map());
   const [remaining, setRemaining] = useState(0);
   const [deadline, setDeadline] = useState<number | null>(null);
+  // practice (untimed warm-up before the real timed test)
+  const [practiceIdx, setPracticeIdx] = useState(0);
+  const [practiceAnswers, setPracticeAnswers] = useState<Map<number, number>>(new Map());
 
   // refs so the countdown's auto-submit always reads the latest answers/test once
   const cogTestRef = useRef<CognitiveTest | null>(null);
@@ -98,18 +102,34 @@ export default function AssessmentFlow() {
     }
   };
 
-  const startCognitive = async () => {
+  // Begin the real timed test (sets the deadline and starts the countdown).
+  const startTimedTest = (t?: CognitiveTest) => {
+    const test = t ?? cogTestRef.current;
+    if (!test) return;
+    setCogIdx(0);
+    setCogAnswers(new Map());
+    submittedRef.current = false;
+    setRemaining(test.time_limit_sec);
+    setDeadline(Date.now() + test.time_limit_sec * 1000);
+    setStep("cog");
+    window.scrollTo(0, 0);
+  };
+
+  // Load the cognitive test, then run the untimed practice round first (if any).
+  const loadCognitive = async () => {
     try {
       const t = await getCognitive(token);
       cogTestRef.current = t;
       setCogTest(t);
-      setCogIdx(0);
-      setCogAnswers(new Map());
-      submittedRef.current = false;
-      setDeadline(Date.now() + t.time_limit_sec * 1000);
-      setRemaining(t.time_limit_sec);
-      setStep("cog");
-      window.scrollTo(0, 0);
+      setDeadline(null);
+      if (t.practice.length > 0) {
+        setPracticeIdx(0);
+        setPracticeAnswers(new Map());
+        setStep("practice");
+        window.scrollTo(0, 0);
+      } else {
+        startTimedTest(t);
+      }
     } catch (e: unknown) {
       setError(e instanceof ApiError ? e.message : "Could not load the cognitive test.");
       setStep("error");
@@ -296,21 +316,107 @@ export default function AssessmentFlow() {
     const mins = Math.round((cogTest?.time_limit_sec ?? 600) / 60);
     return (
       <Shell>
-        <p className="text-xs font-bold uppercase tracking-[0.25em] text-sky-600">Timed section</p>
+        <p className="text-xs font-bold uppercase tracking-[0.25em] text-sky-600">Cognitive section</p>
         <h1 className="mt-2 text-2xl font-extrabold text-slate-900">A few quick problems</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
-          This part <span className="font-semibold">is timed</span>. You&apos;ll have about{" "}
-          {mins} minutes to answer as many questions as you can — a mix of numerical,
-          verbal, and pattern problems. Work quickly and accurately; you can skip a
-          question and it will be marked unanswered. The test submits automatically when
-          time runs out.
+          We&apos;ll start with a couple of <span className="font-semibold">practice questions</span>{" "}
+          (untimed, and they don&apos;t count) so you know exactly what to expect. Then the real
+          section <span className="font-semibold">is timed</span> — about {mins} minutes to answer
+          as many as you can, a mix of numerical, verbal, and pattern problems. You can skip a
+          question, and it submits automatically when time runs out.
         </p>
         <button
-          onClick={() => void startCognitive()}
+          onClick={() => void loadCognitive()}
           className="mt-6 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-sky-700"
         >
-          Begin the timed section
+          Start with practice
         </button>
+        <Footnote />
+      </Shell>
+    );
+  }
+
+  if (step === "practice" && cogTest) {
+    const item = cogTest.practice[practiceIdx];
+    const chosen = practiceAnswers.get(item.id);
+    const answered = chosen !== undefined;
+    const isLast = practiceIdx === cogTest.practice.length - 1;
+    const choose = (i: number) => {
+      if (answered) return; // lock after the first pick so the feedback is stable
+      setPracticeAnswers((prev) => new Map(prev).set(item.id, i));
+    };
+    return (
+      <Shell wide>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-600">
+            Practice {practiceIdx + 1} of {cogTest.practice.length}
+          </p>
+          <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+            Not timed · doesn&apos;t count
+          </span>
+        </div>
+        <h2 className="mt-5 text-lg font-semibold leading-snug text-slate-900">{item.prompt}</h2>
+        <div className="mt-4 flex flex-col gap-2">
+          {item.options.map((opt, i) => {
+            const isChosen = chosen === i;
+            const isCorrect = i === item.answer;
+            let cls = "border-slate-300 bg-white text-slate-700 hover:border-sky-400";
+            if (answered) {
+              if (isCorrect) cls = "border-emerald-500 bg-emerald-50 text-slate-900";
+              else if (isChosen) cls = "border-rose-400 bg-rose-50 text-slate-900";
+              else cls = "border-slate-200 bg-white text-slate-400";
+            } else if (isChosen) {
+              cls = "border-sky-600 bg-sky-50 text-slate-900";
+            }
+            return (
+              <button
+                key={i}
+                onClick={() => choose(i)}
+                disabled={answered}
+                className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition ${cls}`}
+              >
+                <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full border border-slate-300 text-[11px] font-bold">
+                  {String.fromCharCode(65 + i)}
+                </span>
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+        {answered && (
+          <p
+            className={`mt-3 text-sm font-semibold ${
+              chosen === item.answer ? "text-emerald-700" : "text-rose-700"
+            }`}
+          >
+            {chosen === item.answer
+              ? "Correct — that's the idea."
+              : `Not quite — the answer is ${String.fromCharCode(65 + item.answer)}.`}
+          </p>
+        )}
+        <div className="mt-8 flex items-center justify-end gap-3">
+          {!answered && (
+            <span className="text-xs text-slate-500">Pick an answer to see how it works</span>
+          )}
+          {isLast ? (
+            <button
+              onClick={() => startTimedTest()}
+              className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+            >
+              Start the timed test
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setPracticeIdx((i) => i + 1);
+                window.scrollTo(0, 0);
+              }}
+              className="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-sky-700"
+            >
+              Next practice question
+            </button>
+          )}
+        </div>
         <Footnote />
       </Shell>
     );

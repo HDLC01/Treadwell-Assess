@@ -79,10 +79,15 @@ export interface CognitiveItem {
   options: string[];
 }
 
+export interface CognitivePracticeItem extends CognitiveItem {
+  answer: number; // practice items are unscored, so the key is sent for instant feedback
+}
+
 export interface CognitiveTest {
   time_limit_sec: number;
   num_items: number;
   items: CognitiveItem[];
+  practice: CognitivePracticeItem[];
 }
 
 export interface CognitiveAnswer {

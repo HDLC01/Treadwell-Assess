@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DISC_LETTER,
   FACTORS,
@@ -265,6 +266,7 @@ function CandidatesTab({ jobId }: { jobId: string }) {
   const [q, setQ] = useState("");
   const [minFit, setMinFit] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const refresh = useCallback(() => {
     // No synchronous setState here — `loading` starts true and is cleared in
@@ -335,7 +337,11 @@ function CandidatesTab({ jobId }: { jobId: string }) {
             </thead>
             <tbody>
               {rows.map((c) => (
-                <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
+                <tr
+                  key={c.id}
+                  onClick={() => router.push(`/hire/${jobId}/candidate/${c.id}`)}
+                  className="cursor-pointer border-b border-slate-50 hover:bg-slate-50"
+                >
                   <td className="px-4 py-3">
                     <Link
                       href={`/hire/${jobId}/candidate/${c.id}`}
@@ -379,7 +385,7 @@ function CandidatesTab({ jobId }: { jobId: string }) {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => toggleBookmark(c)}
+                      onClick={(e) => { e.stopPropagation(); toggleBookmark(c); }}
                       title={c.bookmarked ? "Remove bookmark" : "Bookmark"}
                       className={`text-lg ${c.bookmarked ? "text-amber-500" : "text-slate-300 hover:text-slate-500"}`}
                     >

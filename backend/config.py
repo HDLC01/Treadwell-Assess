@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     # ── Cognitive test ───────────────────────────────────────────────────────
     COGNITIVE_NUM_ITEMS: int = 20         # items administered per test (capped by bank size)
+    COGNITIVE_PRACTICE_ITEMS: int = 3     # untimed warm-up questions (from the is_sample bank)
     COGNITIVE_TIME_LIMIT_SEC: int = 600   # 10 minutes; client auto-submits at zero
     # Scaled score range [0, COGNITIVE_SCALE_MAX]; an original normed scale that a
     # job's cognitive_target is expressed against. Calibratable from real data later.
