@@ -41,12 +41,20 @@ export default function HiringCenterPage() {
             </span>
             <span className="ml-2 text-xs text-slate-400">Hiring Center</span>
           </div>
-          <button
-            onClick={() => setShowNew((v) => !v)}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-700"
-          >
-            + New job
-          </button>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/reference"
+              className="text-xs font-semibold text-sky-600 hover:text-sky-700"
+            >
+              PI ↔ Archetype reference
+            </Link>
+            <button
+              onClick={() => setShowNew((v) => !v)}
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-700"
+            >
+              + New job
+            </button>
+          </div>
         </div>
       </header>
 
