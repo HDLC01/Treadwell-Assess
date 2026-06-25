@@ -138,7 +138,13 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
   const [compareId, setCompareId] = useState<string>("");
   useEffect(() => {
     listCandidates(job.id, { page: 1 })
-      .then((r) => setCandidates(r.items.filter((c) => c.has_behavioral && c.synthesis)))
+      .then((r) => {
+        const assessed = r.items.filter((c) => c.has_behavioral && c.synthesis);
+        setCandidates(assessed);
+        // Default to the first assessed candidate so the fit stars + overlay show
+        // immediately (the target itself has no rating — fit is per-candidate).
+        setCompareId((cur) => cur || (assessed[0]?.id ?? ""));
+      })
       .catch(() => { /* non-fatal: just no overlay option */ });
   }, [job.id]);
   const compare = candidates.find((c) => c.id === compareId) ?? null;
