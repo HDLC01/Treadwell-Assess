@@ -15,7 +15,7 @@ from sqlalchemy import text
 
 from config import settings
 from db import connect
-from services import email_sender, report_pdf
+from services import email_sender, narrative, report_pdf
 from services.behavioral_scorer import FACTOR_NAMES, band_label
 from services.fit_calculator import behavioral_fit_stars, cognitive_fit
 from services.profile_matcher import match_profiles_for_target
@@ -337,6 +337,15 @@ def _build_report(conn, candidate_id: str) -> Optional[Dict]:
             "status": cr["status"],
             "fit": cognitive_fit(cr["scaled_score"], cand["cognitive_target"]),
         }
+
+    if behavioral:
+        behavioral["narrative"] = narrative.behavioral_narrative(
+            behavioral["factors"], behavioral["reference_profile"]
+        )
+    if cognitive:
+        cognitive["interpretation"] = narrative.cognitive_narrative(
+            cognitive, cand["cognitive_target"], settings.COGNITIVE_SCALE_MAX
+        )
 
     return {
         "candidate": {

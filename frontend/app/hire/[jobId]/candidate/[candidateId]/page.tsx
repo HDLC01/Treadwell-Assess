@@ -88,6 +88,7 @@ export default function CandidatePage({
   }
 
   const { candidate, job, behavioral, cognitive } = report;
+  const first = candidate.full_name?.trim().split(/\s+/)[0] || "this candidate";
 
   return (
     <Frame jobId={jobId}>
@@ -178,6 +179,27 @@ export default function CandidatePage({
                   </div>
                 )}
               </div>
+              {behavioral.narrative && (
+                <div className="mt-5 flex flex-col gap-5 border-t border-slate-100 pt-5">
+                  {behavioral.narrative.summary && (
+                    <p className="text-sm leading-relaxed text-slate-700">{behavioral.narrative.summary}</p>
+                  )}
+                  {behavioral.narrative.strongest.length > 0 && (
+                    <Bullets title="Strongest behaviors" items={behavioral.narrative.strongest} dot="bg-slate-800" />
+                  )}
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Bullets title="Strengths" items={behavioral.narrative.strengths} dot="bg-emerald-500" />
+                    <Bullets title="Potential watch-outs" items={behavioral.narrative.watch_outs} dot="bg-amber-500" />
+                  </div>
+                  <Bullets title={`How to work with ${first}`} items={behavioral.narrative.working_with} dot="bg-sky-500" />
+                  {behavioral.narrative.needs && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">What {first} needs</p>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-700">{behavioral.narrative.needs}</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="mt-5">
                 <p className="mb-4 text-sm font-bold text-slate-800">Behavioral pattern</p>
                 <FactorBars factors={behavioral.factors} />
@@ -192,33 +214,55 @@ export default function CandidatePage({
         <section className="mt-5 rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-bold text-slate-800">Cognitive</h2>
           {cognitive ? (
-            <div className="mt-3 flex flex-wrap items-center gap-5 text-sm">
-              <CognitiveGauge score={cognitive.scaled_score} max={job.scale_max} fit={cognitive.fit} />
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  {cognitive.fit && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${FIT_BADGE[cognitive.fit] ?? ""}`}>
-                      {cognitive.fit === "strong" ? "Strong fit" : `${cognitive.fit} fit`}
-                    </span>
-                  )}
-                  {job.cognitive_target != null && (
-                    <span className="text-xs text-slate-500">Target: {job.cognitive_target} / {job.scale_max}</span>
-                  )}
+            <>
+              <div className="mt-3 flex flex-wrap items-center gap-5 text-sm">
+                <CognitiveGauge score={cognitive.scaled_score} max={job.scale_max} fit={cognitive.fit} />
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    {cognitive.fit && (
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${FIT_BADGE[cognitive.fit] ?? ""}`}>
+                        {cognitive.fit === "strong" ? "Strong fit" : `${cognitive.fit} fit`}
+                      </span>
+                    )}
+                    {job.cognitive_target != null && (
+                      <span className="text-xs text-slate-500">Target: {job.cognitive_target} / {job.scale_max}</span>
+                    )}
+                  </div>
+                  <span className="text-slate-600">
+                    {cognitive.raw_score} of {cognitive.num_items} correct
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {cognitive.status === "expired" ? "timed out" : "completed"}
+                  </span>
                 </div>
-                <span className="text-slate-600">
-                  {cognitive.raw_score} of {cognitive.num_items} correct
-                </span>
-                <span className="text-xs text-slate-400">
-                  {cognitive.status === "expired" ? "timed out" : "completed"}
-                </span>
               </div>
-            </div>
+              {cognitive.interpretation && (
+                <p className="mt-3 text-sm leading-relaxed text-slate-700">{cognitive.interpretation}</p>
+              )}
+            </>
           ) : (
             <p className="mt-3 text-sm text-slate-500">Not taken yet.</p>
           )}
         </section>
       </div>
     </Frame>
+  );
+}
+
+function Bullets({ title, items, dot }: { title: string; items: string[]; dot: string }) {
+  if (!items?.length) return null;
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{title}</p>
+      <ul className="mt-2 flex flex-col gap-1.5">
+        {items.map((t, i) => (
+          <li key={i} className="flex gap-2 text-sm text-slate-700">
+            <span className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+            <span className="leading-relaxed">{t}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

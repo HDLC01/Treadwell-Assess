@@ -151,11 +151,21 @@ export interface CandidatesEnvelope {
   total_pages: number;
 }
 
+export interface BehavioralNarrative {
+  summary: string;
+  strongest: string[];
+  strengths: string[];
+  watch_outs: string[];
+  working_with: string[];
+  needs: string;
+}
+
 export interface BehavioralReportBlock {
   assessed_at: string;
   factors: FactorScore[];
   reference_profile: ReferenceProfile | null;
   fit_stars: number | null;
+  narrative?: BehavioralNarrative;
 }
 
 export interface CognitiveReportBlock {
@@ -165,6 +175,7 @@ export interface CognitiveReportBlock {
   num_items: number;
   status: "complete" | "expired";
   fit: string | null;
+  interpretation?: string;
 }
 
 export interface CandidateReport {
