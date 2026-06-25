@@ -118,7 +118,7 @@ export default function AssessmentFlow() {
   // Load the cognitive test, then run the untimed practice round first (if any).
   const loadCognitive = async () => {
     try {
-      const t = await getCognitive(token);
+      const t = await getCognitive(token, candidateId);
       cogTestRef.current = t;
       setCogTest(t);
       setDeadline(null);

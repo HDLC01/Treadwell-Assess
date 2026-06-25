@@ -214,8 +214,8 @@ export const submitBehavioral = (
     }),
   });
 
-export const getCognitive = (token: string) =>
-  request<CognitiveTest>(`/assess/${token}/cognitive`);
+export const getCognitive = (token: string, candidate_id: string) =>
+  request<CognitiveTest>(`/assess/${token}/cognitive?candidate_id=${encodeURIComponent(candidate_id)}`);
 export const submitCognitive = (
   token: string,
   candidate_id: string,

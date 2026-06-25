@@ -195,22 +195,30 @@ def _practice_items(conn):
 
 
 @router.get("/assess/{token}/cognitive")
-def get_cognitive(token: str):
-    """The timed cognitive test for this token, plus an untimed practice round.
-    Real-test answer keys are NEVER included (only id/type/prompt/options) and the
-    real item set is deterministic per token; practice items DO include answers
-    (they're samples, never scored) so the UI can give instant feedback."""
+def get_cognitive(token: str, candidate_id: str):
+    """The timed cognitive test for THIS candidate, plus an untimed practice round.
+    The item set, its order, AND each item's option order are seeded by the candidate
+    id, so no two candidates get an identical test (anti-cheating). Real-test answer
+    keys are NEVER included; the set is rebuilt server-side on submit from the same
+    seed. Practice items DO include answers (samples, never scored) for instant feedback."""
     with connect() as conn:
-        _get_link(conn, token)
+        link = _get_link(conn, token)
+        cand = conn.execute(
+            text("select id from candidates where id = :c and job_id = :j"),
+            {"c": candidate_id, "j": link["job_id"]},
+        ).first()
+        if cand is None:
+            raise HTTPException(status_code=404, detail="Candidate not found — start the assessment first.")
         items = _active_cognitive_items(conn, with_answer=False)
         practice = _practice_items(conn)
-    administered = cognitive_scorer.select_items(items, token)
+    administered = cognitive_scorer.select_items(items, candidate_id)
     return {
         "time_limit_sec": settings.COGNITIVE_TIME_LIMIT_SEC,
         "num_items": len(administered),
         "items": [
-            {"id": it["id"], "item_type": it["item_type"],
-             "prompt": it["prompt"], "options": it["options"]}
+            {"id": it["id"], "item_type": it["item_type"], "prompt": it["prompt"],
+             "options": [it["options"][i]
+                         for i in cognitive_scorer.option_order(candidate_id, it["id"], len(it["options"]))]}
             for it in administered
         ],
         "practice": [
@@ -223,8 +231,9 @@ def get_cognitive(token: str):
 
 @router.post("/assess/{token}/cognitive")
 def submit_cognitive(token: str, body: CognitiveBody):
-    """Score the cognitive test. The administered set is rebuilt server-side from the
-    token (so the denominator can't be gamed) and graded against the hidden keys."""
+    """Score the cognitive test. The administered set + option order are rebuilt
+    server-side from the candidate id (so the denominator can't be gamed and the
+    per-candidate option shuffle is reversed) and graded against the hidden keys."""
     with connect() as conn:
         _get_link(conn, token)
         cand = conn.execute(
@@ -234,9 +243,20 @@ def submit_cognitive(token: str, body: CognitiveBody):
             raise HTTPException(status_code=404, detail="Candidate not found — start the assessment first.")
 
         items = _active_cognitive_items(conn, with_answer=True)
-        administered = cognitive_scorer.select_items(items, token)
-        answers = {a.item_id: a.chosen for a in body.answers}
-        scored = cognitive_scorer.score(administered, answers)
+        administered = cognitive_scorer.select_items(items, body.candidate_id)
+        by_id = {it["id"]: it for it in administered}
+        # Candidates answer in the per-candidate SERVED option order; map each choice
+        # back to the item's original option index before grading.
+        remapped: dict[int, Optional[int]] = {}
+        for a in body.answers:
+            it = by_id.get(a.item_id)
+            if it is None or a.chosen is None:
+                remapped[a.item_id] = None
+                continue
+            perm = cognitive_scorer.option_order(body.candidate_id, a.item_id, len(it["options"]))
+            chosen = int(a.chosen)
+            remapped[a.item_id] = perm[chosen] if 0 <= chosen < len(perm) else None
+        scored = cognitive_scorer.score(administered, remapped)
         status = "expired" if body.expired else "complete"
 
         conn.execute(
