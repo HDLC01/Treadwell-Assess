@@ -133,6 +133,15 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
   const [cog, setCog] = useState<string>(job.cognitive_target?.toString() ?? "");
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  // Overlay a chosen candidate's behavioral pattern on the target ranges.
+  const [candidates, setCandidates] = useState<CandidateRow[]>([]);
+  const [compareId, setCompareId] = useState<string>("");
+  useEffect(() => {
+    listCandidates(job.id, { page: 1 })
+      .then((r) => setCandidates(r.items.filter((c) => c.has_behavioral && c.synthesis)))
+      .catch(() => { /* non-fatal: just no overlay option */ });
+  }, [job.id]);
+  const compare = candidates.find((c) => c.id === compareId) ?? null;
 
   const setRange = (f: Factor, key: "low" | "high", v: number) =>
     setTarget((t) => ({ ...t, [f]: { ...t[f], [key]: v } }));
@@ -157,6 +166,31 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
         <p className="mt-1 text-xs text-slate-500">
           Your ideal candidate will likely fall into these highlighted ranges of behaviors.
         </p>
+
+        {candidates.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <span className="text-xs font-semibold text-slate-600">Compare a candidate</span>
+            <select
+              value={compareId}
+              onChange={(e) => setCompareId(e.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700"
+            >
+              <option value="">— none —</option>
+              {candidates.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+            </select>
+            {compare && (
+              <span className="flex items-center gap-2 text-xs text-slate-600">
+                <Stars value={compare.behavioral_fit} />
+                {compare.profile_name && <span className="font-semibold text-slate-800">{compare.profile_name}</span>}
+                <span className="inline-flex items-center gap-1 text-slate-400">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-white bg-sky-600 shadow" />
+                  on the bars
+                </span>
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mt-6 flex flex-col gap-7">
           {FACTORS.map((f) => {
             const rng = target[f];
@@ -175,6 +209,13 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
                     {[-3, -2, -1, 0, 1, 2, 3].map((t) => (
                       <span key={t} className="absolute top-1/2 h-2.5 w-px -translate-y-1/2 bg-slate-300" style={{ left: pct(t) }} />
                     ))}
+                    {compare?.synthesis && (
+                      <span
+                        className="absolute top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-sky-600 shadow"
+                        style={{ left: pct(compare.synthesis[f]) }}
+                        title={`${compare.full_name}: ${compare.synthesis[f] > 0 ? "+" : ""}${compare.synthesis[f]}σ`}
+                      />
+                    )}
                   </div>
                   <span className="w-20">{FACTOR_ENDS[f][1]}</span>
                 </div>
