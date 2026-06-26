@@ -11,16 +11,52 @@ const SEEN_KEY = "assess_notif_seen";
 
 function relTime(iso: string): string {
   const t = new Date(iso.replace(" ", "T") + (/[Z+]/.test(iso) ? "" : "Z")).getTime();
+  if (Number.isNaN(t)) return iso.slice(0, 10);
   const diff = Date.now() - t;
-  if (Number.isNaN(diff)) return iso.slice(0, 10);
-  const m = Math.max(0, Math.round(diff / 60000));
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  const future = diff < 0;
+  const a = Math.abs(diff);
+  const fmt = (n: number, u: string) => (future ? `in ${n}${u}` : `${n}${u} ago`);
+  const m = Math.round(a / 60000);
+  if (m < 1) return future ? "any moment" : "just now";
+  if (m < 60) return fmt(m, "m");
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return fmt(h, "h");
   const d = Math.round(h / 24);
-  if (d < 30) return `${d}d ago`;
+  if (d < 30) return fmt(d, "d");
   return iso.slice(0, 10);
+}
+
+function Item({
+  href,
+  tint,
+  icon,
+  title,
+  sub,
+  subTint = "text-slate-400",
+  onClick,
+}: {
+  href: string;
+  tint: string;
+  icon: React.ReactNode;
+  title: React.ReactNode;
+  sub: React.ReactNode;
+  subTint?: string;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      role="menuitem"
+      className="flex items-start gap-3 border-b border-slate-50 px-4 py-3 transition last:border-0 hover:bg-slate-50"
+    >
+      <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${tint}`}>{icon}</span>
+      <div className="min-w-0">
+        <p className="text-sm text-slate-800">{title}</p>
+        <p className={`text-xs ${subTint}`}>{sub}</p>
+      </div>
+    </Link>
+  );
 }
 
 export default function NotificationBell() {
@@ -53,9 +89,13 @@ export default function NotificationBell() {
   }, [open]);
 
   const needsTarget = items.filter((i) => i.kind === "needs_target");
+  const expiring = items.filter((i) => i.kind === "expiring_link");
+  const stuck = items.filter((i) => i.kind === "stuck_candidate");
   const completions = items.filter((i) => i.kind === "completion");
+  const weekly = items.find((i) => i.kind === "weekly_summary");
   const newCompletions = completions.filter((i) => i.at > seen).length;
-  const badge = needsTarget.length + newCompletions;
+  // Persistent action/attention items + completions not yet opened. Digest excluded.
+  const badge = needsTarget.length + expiring.length + stuck.length + newCompletions;
 
   const toggle = () => {
     const next = !open;
@@ -65,6 +105,8 @@ export default function NotificationBell() {
       setSeen(completions[0].at);
     }
   };
+
+  const close = () => setOpen(false);
 
   return (
     <div className="relative" ref={ref}>
@@ -97,51 +139,90 @@ export default function NotificationBell() {
             ) : (
               <>
                 {needsTarget.map((n) => (
-                  <Link
+                  <Item
                     key={`t-${n.job_id}`}
                     href={`/hire/${n.job_id}`}
-                    onClick={() => setOpen(false)}
-                    role="menuitem"
-                    className="flex items-start gap-3 border-b border-slate-50 px-4 py-3 transition hover:bg-amber-50/60"
-                  >
-                    <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
+                    onClick={close}
+                    tint="bg-amber-100 text-amber-700"
+                    subTint="text-amber-700"
+                    icon={
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
                         <path d="M12 9v4" /><path d="M12 17h.01" />
                       </svg>
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm text-slate-800">
-                        <span className="font-semibold">{n.job_name}</span> needs a behavioral target
-                      </p>
-                      <p className="text-xs text-amber-700">
-                        Set one so its {n.candidate_count} candidate{n.candidate_count === 1 ? "" : "s"} can be scored →
-                      </p>
-                    </div>
-                  </Link>
+                    }
+                    title={<><span className="font-semibold">{n.job_name}</span> needs a behavioral target</>}
+                    sub={<>Set one so its {n.candidate_count} candidate{n.candidate_count === 1 ? "" : "s"} can be scored →</>}
+                  />
+                ))}
+                {expiring.map((n) => (
+                  <Item
+                    key={`l-${n.job_id}`}
+                    href={`/hire/${n.job_id}`}
+                    onClick={close}
+                    tint="bg-rose-100 text-rose-700"
+                    subTint="text-rose-700"
+                    icon={
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+                      </svg>
+                    }
+                    title={<><span className="font-semibold">{n.job_name}</span> link {n.expired ? "has expired" : "is expiring"}</>}
+                    sub={n.expired ? "Generate a new assessment link →" : `Expires ${relTime(n.at)} →`}
+                  />
+                ))}
+                {stuck.map((n) => (
+                  <Item
+                    key={`s-${n.candidate_id}`}
+                    href={`/hire/${n.job_id}/candidate/${n.candidate_id}`}
+                    onClick={close}
+                    tint="bg-slate-100 text-slate-500"
+                    icon={
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M5 22h14" /><path d="M5 2h14" />
+                        <path d="M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22" />
+                        <path d="M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2" />
+                      </svg>
+                    }
+                    title={<><span className="font-semibold">{n.full_name}</span> started <span className="text-slate-600">{n.job_name}</span> but hasn&apos;t finished</>}
+                    sub={`Started ${relTime(n.at)}`}
+                  />
                 ))}
                 {completions.map((n) => (
-                  <Link
+                  <Item
                     key={`c-${n.candidate_id}`}
                     href={`/hire/${n.job_id}/candidate/${n.candidate_id}`}
-                    onClick={() => setOpen(false)}
-                    role="menuitem"
-                    className="flex items-start gap-3 border-b border-slate-50 px-4 py-3 transition last:border-0 hover:bg-slate-50"
-                  >
-                    <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+                    onClick={close}
+                    tint="bg-emerald-100 text-emerald-700"
+                    icon={
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <path d="M20 6 9 17l-5-5" />
                       </svg>
+                    }
+                    title={<><span className="font-semibold">{n.full_name}</span> completed <span className="text-slate-600">{n.job_name}</span></>}
+                    sub={relTime(n.at)}
+                  />
+                ))}
+                {weekly && (
+                  <Link
+                    href="/candidates"
+                    onClick={close}
+                    role="menuitem"
+                    className="flex items-start gap-3 border-t border-slate-100 bg-sky-50/40 px-4 py-3 transition hover:bg-sky-50"
+                  >
+                    <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" />
+                      </svg>
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm text-slate-800">
-                        <span className="font-semibold">{n.full_name}</span> completed{" "}
-                        <span className="text-slate-600">{n.job_name}</span>
+                      <p className="text-sm text-slate-800">This week</p>
+                      <p className="text-xs text-slate-500">
+                        {weekly.completed_count} completed · {weekly.in_progress_count} in progress →
                       </p>
-                      <p className="text-xs text-slate-400">{relTime(n.at)}</p>
                     </div>
                   </Link>
-                ))}
+                )}
               </>
             )}
           </div>

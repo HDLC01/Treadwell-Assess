@@ -261,13 +261,16 @@ export const listAllCandidates = (params: { q?: string; role?: string; status?: 
   return request<CandidatesEnvelope>(`/candidates${qs ? `?${qs}` : ""}`);
 };
 export interface AssessNotification {
-  kind: "needs_target" | "completion";
+  kind: "needs_target" | "completion" | "expiring_link" | "stuck_candidate" | "weekly_summary";
   at: string;
-  job_id: string;
-  job_name: string;
+  job_id?: string;
+  job_name?: string;
   candidate_id?: string;
   full_name?: string;
   candidate_count?: number;
+  expired?: boolean;
+  completed_count?: number;
+  in_progress_count?: number;
 }
 // Important admin notifications (no candidate results).
 export const listNotifications = () =>

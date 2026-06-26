@@ -333,37 +333,67 @@ def list_all_candidates(
 @router.get("/notifications")
 def list_notifications(limit: int = Query(15, ge=1, le=50)):
     """Important admin notifications — NO candidate results (@wetreadwell-gated):
-    jobs still missing a behavioral target (their candidates can't be scored) and
-    recent candidate completions to review. Action items first, then by recency."""
+    jobs missing a target, assessment links expiring/expired, candidates stuck
+    mid-assessment, recent completions to review, and a weekly activity summary."""
     items = []
     with connect() as conn:
+        # action: jobs without a behavioral target (candidates can't be scored)
         for r in conn.execute(text(
             "select j.id, j.name, j.created_at, "
             "       (select count(*) from candidates c where c.job_id = j.id) as candidate_count "
             "from jobs j where j.behavioral_target is null order by j.created_at desc"
         )).mappings().all():
             items.append({
-                "kind": "needs_target",
-                "job_id": str(r["id"]),
-                "job_name": r["name"],
-                "candidate_count": r["candidate_count"],
-                "at": str(r["created_at"]),
+                "kind": "needs_target", "job_id": str(r["id"]), "job_name": r["name"],
+                "candidate_count": r["candidate_count"], "at": str(r["created_at"]),
             })
+        # action: assessment links already expired or expiring within 7 days
         for r in conn.execute(text(
-            "select c.id, c.full_name, j.id as job_id, j.name as job_name, "
-            "       br.created_at as at "
+            "select distinct on (l.job_id) l.job_id, j.name as job_name, l.expires_at, "
+            "       (l.expires_at < now()) as expired "
+            "from assessment_links l join jobs j on j.id = l.job_id "
+            "where l.expires_at is not null and l.expires_at < now() + interval '7 days' "
+            "order by l.job_id, l.expires_at asc"
+        )).mappings().all():
+            items.append({
+                "kind": "expiring_link", "job_id": str(r["job_id"]), "job_name": r["job_name"],
+                "expired": bool(r["expired"]), "at": str(r["expires_at"]),
+            })
+        # attention: candidates who started but haven't finished (idle > 24h)
+        for r in conn.execute(text(
+            "select c.id, c.full_name, j.id as job_id, j.name as job_name, c.created_at "
+            "from candidates c join jobs j on j.id = c.job_id "
+            "where c.created_at < now() - interval '24 hours' "
+            "  and not exists (select 1 from behavioral_results b where b.candidate_id = c.id) "
+            "order by c.created_at desc limit :lim"
+        ), {"lim": limit}).mappings().all():
+            items.append({
+                "kind": "stuck_candidate", "candidate_id": str(r["id"]), "full_name": r["full_name"],
+                "job_id": str(r["job_id"]), "job_name": r["job_name"], "at": str(r["created_at"]),
+            })
+        # recent completions to review
+        for r in conn.execute(text(
+            "select c.id, c.full_name, j.id as job_id, j.name as job_name, br.created_at as at "
             "from candidates c join jobs j on j.id = c.job_id "
             "join lateral (select created_at from behavioral_results b "
             "              where b.candidate_id = c.id order by b.created_at desc limit 1) br on true "
             "order by br.created_at desc limit :lim"
         ), {"lim": limit}).mappings().all():
             items.append({
-                "kind": "completion",
-                "candidate_id": str(r["id"]),
-                "full_name": r["full_name"],
-                "job_id": str(r["job_id"]),
-                "job_name": r["job_name"],
-                "at": str(r["at"]),
+                "kind": "completion", "candidate_id": str(r["id"]), "full_name": r["full_name"],
+                "job_id": str(r["job_id"]), "job_name": r["job_name"], "at": str(r["at"]),
+            })
+        # weekly activity summary (digest; only when there's activity)
+        s = conn.execute(text(
+            "select "
+            "  (select count(*) from behavioral_results b where b.created_at > now() - interval '7 days') as completed, "
+            "  (select count(*) from candidates c where c.created_at > now() - interval '7 days' "
+            "     and not exists (select 1 from behavioral_results b2 where b2.candidate_id = c.id)) as in_progress"
+        )).mappings().first()
+        if s and (s["completed"] or s["in_progress"]):
+            items.append({
+                "kind": "weekly_summary",
+                "completed_count": s["completed"], "in_progress_count": s["in_progress"], "at": "",
             })
     return {"items": items}
 
