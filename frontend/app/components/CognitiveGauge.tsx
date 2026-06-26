@@ -30,10 +30,12 @@ export default function CognitiveGauge({
       height={size}
       viewBox={`0 0 ${size} ${size}`}
       role="img"
-      aria-label={`Cognitive score ${score} of ${max}`}
+      aria-label={`Cognitive score ${score} of ${max}${fit ? `, ${fit} fit` : ""}`}
       className="shrink-0"
     >
+      {/* track */}
       <circle cx={cx} cy={cx} r={r} fill="none" stroke="#e2e8f0" strokeWidth={stroke} />
+      {/* score arc */}
       <circle
         cx={cx}
         cy={cx}
@@ -45,11 +47,27 @@ export default function CognitiveGauge({
         strokeDasharray={c}
         strokeDashoffset={c * (1 - pct)}
         transform={`rotate(-90 ${cx} ${cx})`}
+        className="motion-safe:transition-[stroke-dashoffset] motion-safe:duration-700 motion-safe:ease-out"
       />
-      <text x={cx} y={cx - 4} textAnchor="middle" dominantBaseline="middle" fontSize={26} fontWeight={800} className="fill-slate-900">
+      <text
+        x={cx}
+        y={cx - 4}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={26}
+        fontWeight={800}
+        className="fill-slate-900 [font-variant-numeric:tabular-nums]"
+      >
         {score}
       </text>
-      <text x={cx} y={cx + 16} textAnchor="middle" dominantBaseline="middle" fontSize={11} className="fill-slate-500">
+      <text
+        x={cx}
+        y={cx + 16}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={11}
+        className="fill-slate-500 [font-variant-numeric:tabular-nums]"
+      >
         of {max}
       </text>
     </svg>

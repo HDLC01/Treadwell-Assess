@@ -20,7 +20,7 @@ import Stars from "../../components/Stars";
 import Sparkline from "../../components/Sparkline";
 import ArchetypeIcon from "../../components/ArchetypeIcon";
 import AppHeader from "../../components/AppHeader";
-import { btnPrimary, btnSecondary, inputCls } from "../../lib/ui";
+import { btnPrimary, btnSecondary, card, inputCls } from "../../lib/ui";
 
 const FACTOR_ENDS: Record<Factor, [string, string]> = {
   A: ["Collaborative", "Independent"],
@@ -187,31 +187,54 @@ export default function JobPage({ params }: { params: Promise<{ jobId: string }>
   }, [jobId]);
   useEffect(refresh, [refresh]);
 
-  if (error) return <Frame><p className="p-8 text-rose-600">{error}</p></Frame>;
-  if (!job) return <Frame><p className="p-8 text-slate-500">Loading…</p></Frame>;
+  if (error)
+    return (
+      <Frame>
+        <div className="mx-auto max-w-5xl px-4 py-8">
+          <p className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>
+        </div>
+      </Frame>
+    );
+  if (!job)
+    return (
+      <Frame>
+        <div className="mx-auto max-w-5xl px-4 pt-6">
+          <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
+          <div className="mt-3 h-7 w-64 animate-pulse rounded bg-slate-200" />
+          <div className="mt-6 h-px w-full bg-slate-200" />
+        </div>
+        <div className="mx-auto max-w-5xl px-4 py-6">
+          <div className={`h-64 animate-pulse ${card}`} />
+        </div>
+      </Frame>
+    );
 
   return (
     <Frame>
       <div className="mx-auto max-w-5xl px-4 pt-6">
-        <Link href="/hire" className="text-xs font-semibold text-sky-600 hover:underline">
-          ← Hiring Center
+        <Link
+          href="/hire"
+          className="inline-flex items-center gap-1 rounded-md text-xs font-semibold text-sky-600 transition hover:text-sky-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+        >
+          <span aria-hidden>&larr;</span> Hiring Center
         </Link>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900">{job.name}</h1>
-            {job.folder && <p className="text-xs text-slate-500">Folder: {job.folder}</p>}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-extrabold tracking-tight text-slate-900">{job.name}</h1>
+            {job.folder && <p className="mt-0.5 text-xs text-slate-500">Folder: {job.folder}</p>}
           </div>
           <CopyLinkButton jobId={job.id} />
         </div>
-        <nav className="mt-5 flex gap-6 border-b border-slate-200 text-sm font-semibold">
+        <nav className="mt-5 flex gap-1 border-b border-slate-200 text-sm font-semibold">
           {(["target", "candidates"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`-mb-px border-b-2 pb-2 transition ${
+              aria-current={tab === t ? "page" : undefined}
+              className={`-mb-px rounded-t-md border-b-2 px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
                 tab === t
                   ? "border-sky-600 text-slate-900"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
+                  : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               }`}
             >
               {t === "target" ? "Job Target" : `Candidates (${job.candidate_count})`}
@@ -313,19 +336,22 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
+      <div className={`p-6 ${card}`}>
         <p className="text-sm font-bold text-slate-800">Behavioral Target</p>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">
           Your ideal candidate will likely fall into these highlighted ranges of behaviors.
         </p>
 
         {candidates.length > 0 && (
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <span className="text-xs font-semibold text-slate-600">Compare a candidate</span>
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <label htmlFor="compare-candidate" className="text-xs font-semibold text-slate-600">
+              Compare a candidate
+            </label>
             <select
+              id="compare-candidate"
               value={compareId}
               onChange={(e) => setCompareId(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700"
+              className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
             >
               <option value="">— none —</option>
               {candidates.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
@@ -334,7 +360,7 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
               <span className="flex items-center gap-2 text-xs text-slate-600">
                 <Stars value={compare.behavioral_fit} />
                 {compare.profile_name && <span className="font-semibold text-slate-800">{compare.profile_name}</span>}
-                <span className="inline-flex items-center gap-1 text-slate-400">
+                <span className="inline-flex items-center gap-1.5 text-slate-400">
                   <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-white bg-sky-600 shadow" />
                   on the bars
                 </span>
@@ -361,18 +387,26 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
             />
           ))}
         </div>
-        <div className="mt-6 flex items-center gap-3 border-t border-slate-100 pt-4">
-          <label className="text-xs font-semibold text-slate-600">
-            Cognitive target (min score)
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            Cognitive target <span className="font-normal text-slate-400">(min score)</span>
             <input
               value={cog}
               onChange={(e) => setCog(e.target.value.replace(/[^0-9]/g, ""))}
-              className={`ml-2 w-20 ${inputCls}`}
+              inputMode="numeric"
+              className={`w-20 text-center tabular-nums ${inputCls}`}
               placeholder="—"
             />
           </label>
           <div className="flex-1" />
-          {savedAt && <span className="text-xs text-emerald-600">Saved ✓</span>}
+          {savedAt && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              Saved
+            </span>
+          )}
           <button onClick={save} disabled={saving} className={btnPrimary}>
             {saving ? "Saving…" : "Save target"}
           </button>
@@ -380,12 +414,17 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
       </div>
 
       {job.key_characteristics.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
+        <div className={`p-6 ${card}`}>
           <p className="text-sm font-bold text-slate-800">Key Characteristics</p>
+          <p className="mt-1 text-xs text-slate-500">Behaviors this target tends to favor.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {job.key_characteristics.map((c) => (
-              <div key={c} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                {c}
+              <div
+                key={c}
+                className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+              >
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" aria-hidden />
+                <span>{c}</span>
               </div>
             ))}
           </div>
@@ -393,14 +432,17 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
       )}
 
       {job.matched_profiles.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
+        <div className={`p-6 ${card}`}>
           <p className="text-sm font-bold text-slate-800">Common Reference Profiles</p>
           <p className="mt-1 text-xs text-slate-500">
             Candidates matching this target often land in these profiles.
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             {job.matched_profiles.map((p) => (
-              <div key={p.slug} className="rounded-lg border border-slate-200 p-4">
+              <div
+                key={p.slug}
+                className="rounded-lg border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
+              >
                 <p className="text-sm font-extrabold text-slate-900">{p.name}</p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-600">{p.tagline}</p>
               </div>
@@ -448,12 +490,13 @@ function CandidatesTab({ jobId }: { jobId: string }) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className={card}>
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
         <select
           value={minFit}
           onChange={(e) => { setMinFit(e.target.value); setPage(1); }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+          aria-label="Minimum behavioral fit"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
         >
           <option value="">Minimum Behavioral Fit</option>
           <option value="2">★ 2+</option>
@@ -462,32 +505,76 @@ function CandidatesTab({ jobId }: { jobId: string }) {
           <option value="4.5">★ 4.5+</option>
         </select>
         <div className="flex-1" />
-        <input
-          value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
-          placeholder="Search for a candidate"
-          className="w-56 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            value={q}
+            onChange={(e) => { setQ(e.target.value); setPage(1); }}
+            placeholder="Search for a candidate"
+            aria-label="Search for a candidate"
+            className={`w-56 pl-9 ${inputCls}`}
+          />
+        </div>
       </div>
 
       {loading ? (
-        <p className="p-6 text-sm text-slate-500">Loading…</p>
+        <div className="divide-y divide-slate-50" aria-hidden>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3.5">
+              <div className="flex-1">
+                <div className="h-3.5 w-40 animate-pulse rounded bg-slate-100" />
+                <div className="mt-2 h-2.5 w-28 animate-pulse rounded bg-slate-100" />
+              </div>
+              <div className="h-3.5 w-20 animate-pulse rounded bg-slate-100" />
+              <div className="h-3.5 w-24 animate-pulse rounded bg-slate-100" />
+              <div className="h-7 w-20 animate-pulse rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
       ) : rows.length === 0 ? (
-        <p className="p-6 text-sm text-slate-500">
-          No candidates yet — copy the assessment link and send it out.
-        </p>
+        <div className="px-6 py-14 text-center">
+          {q || minFit ? (
+            <>
+              <p className="text-sm font-semibold text-slate-700">No matching candidates</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                Try a different search or lower the minimum behavioral fit.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-slate-700">No candidates yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                Copy the assessment link and send it out — candidates appear here as they finish.
+              </p>
+            </>
+          )}
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">Candidate</th>
-                <th className="px-4 py-3">Behavioral Fit</th>
-                <th className="px-4 py-3">Reference Profile</th>
-                <th className="px-4 py-3">Assessed</th>
-                <th className="px-4 py-3">Behavioral Pattern</th>
-                <th className="px-4 py-3">Cognitive Fit</th>
-                <th className="px-4 py-3" />
+              <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th className="px-4 py-2.5 font-semibold">Candidate</th>
+                <th className="px-4 py-2.5 font-semibold">Behavioral Fit</th>
+                <th className="px-4 py-2.5 font-semibold">Reference Profile</th>
+                <th className="px-4 py-2.5 font-semibold">Assessed</th>
+                <th className="px-4 py-2.5 font-semibold">Behavioral Pattern</th>
+                <th className="px-4 py-2.5 font-semibold">Cognitive Fit</th>
+                <th className="px-4 py-2.5 text-right font-semibold"><span className="sr-only">Bookmark</span></th>
               </tr>
             </thead>
             <tbody>
@@ -495,41 +582,46 @@ function CandidatesTab({ jobId }: { jobId: string }) {
                 <tr
                   key={c.id}
                   onClick={() => router.push(`/hire/${jobId}/candidate/${c.id}`)}
-                  className="cursor-pointer border-b border-slate-50 hover:bg-slate-50"
+                  className="group cursor-pointer border-b border-slate-50 transition-colors last:border-0 hover:bg-sky-50/40"
                 >
                   <td className="px-4 py-3">
                     <Link
                       href={`/hire/${jobId}/candidate/${c.id}`}
-                      className="font-bold text-slate-900 hover:text-sky-700 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded font-bold text-slate-900 transition-colors group-hover:text-sky-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                     >
                       {c.full_name}
                     </Link>
-                    {c.email && <p className="text-xs text-slate-500">{c.email}</p>}
+                    {c.email && <p className="truncate text-xs text-slate-500">{c.email}</p>}
                   </td>
                   <td className="px-4 py-3"><Stars value={c.behavioral_fit} /></td>
                   <td className="px-4 py-3 text-slate-700">
                     {c.profile_name ? (
                       <span className="flex items-center gap-2">
                         <ArchetypeIcon slug={c.profile_slug} size={24} />
-                        {c.profile_name}
+                        <span className="font-medium">{c.profile_name}</span>
                       </span>
                     ) : (
-                      "—"
+                      <span className="text-slate-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
-                    {c.assessed_at ? c.assessed_at.slice(0, 10) : "pending"}
+                  <td className="px-4 py-3 text-xs tabular-nums text-slate-500">
+                    {c.assessed_at ? (
+                      c.assessed_at.slice(0, 10)
+                    ) : (
+                      <span className="text-amber-600">pending</span>
+                    )}
                   </td>
                   <td className="px-4 py-3"><Sparkline synthesis={c.synthesis} /></td>
                   <td className="px-4 py-3">
                     {c.cognitive_fit ? (
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize ring-1 ring-inset ${
                           c.cognitive_fit === "strong"
-                            ? "bg-emerald-100 text-emerald-700"
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
                             : c.cognitive_fit === "moderate"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-rose-100 text-rose-700"
+                              ? "bg-amber-50 text-amber-700 ring-amber-200"
+                              : "bg-rose-50 text-rose-700 ring-rose-200"
                         }`}
                       >
                         {c.cognitive_fit === "strong" ? "Strong fit" : c.cognitive_fit}
@@ -541,8 +633,14 @@ function CandidatesTab({ jobId }: { jobId: string }) {
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleBookmark(c); }}
+                      aria-pressed={c.bookmarked}
+                      aria-label={c.bookmarked ? "Remove bookmark" : "Bookmark candidate"}
                       title={c.bookmarked ? "Remove bookmark" : "Bookmark"}
-                      className={`text-lg ${c.bookmarked ? "text-amber-500" : "text-slate-300 hover:text-slate-500"}`}
+                      className={`grid h-9 w-9 place-items-center rounded-md text-lg leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+                        c.bookmarked
+                          ? "text-amber-500 hover:text-amber-600"
+                          : "text-slate-300 hover:text-slate-500"
+                      }`}
                     >
                       {c.bookmarked ? "★" : "☆"}
                     </button>
@@ -556,21 +654,26 @@ function CandidatesTab({ jobId }: { jobId: string }) {
 
       <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
         <span>
-          Showing {rows.length} of {total}
+          Showing <span className="font-semibold tabular-nums text-slate-700">{rows.length}</span> of{" "}
+          <span className="font-semibold tabular-nums text-slate-700">{total}</span>
         </span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40"
+            aria-label="Previous page"
+            className="grid h-8 w-8 place-items-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
           >
             ‹
           </button>
-          <span>{page} / {totalPages}</span>
+          <span className="tabular-nums">
+            {page} / {totalPages}
+          </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40"
+            aria-label="Next page"
+            className="grid h-8 w-8 place-items-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
           >
             ›
           </button>

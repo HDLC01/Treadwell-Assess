@@ -10,6 +10,12 @@ const DIRS: Record<Factor, [number, number]> = {
   D: [-1, 0], // Conscientiousness — left
 };
 const ORDER: Factor[] = ["A", "B", "C", "D"];
+const AXIS_NAME: Record<Factor, string> = {
+  A: "Dominance",
+  B: "Influence",
+  C: "Steadiness",
+  D: "Conscientiousness",
+};
 
 export default function RadarChart({
   factors,
@@ -40,15 +46,17 @@ export default function RadarChart({
       height={size}
       viewBox={`0 0 ${size} ${size}`}
       role="img"
-      aria-label="DISC behavioral fingerprint"
-      className="mx-auto"
+      aria-label={`DISC behavioral fingerprint: ${ORDER.map(
+        (f) => `${AXIS_NAME[f]} ${(byKey.get(f)?.synthesis ?? 0).toFixed(1)} sigma`,
+      ).join(", ")}`}
+      className="mx-auto block"
     >
       {/* grid rings */}
       {grid.map((pts, i) => (
         <polygon
           key={i}
           points={pts}
-          fill={i === 1 ? "#f1f5f9" : "none"}
+          fill={i === 3 ? "#f8fafc" : "none"}
           stroke="#e2e8f0"
           strokeWidth={1}
         />
@@ -56,18 +64,38 @@ export default function RadarChart({
       {/* axes */}
       {ORDER.map((f) => {
         const [x, y] = at(f, maxR);
-        return <line key={f} x1={cx} y1={cy} x2={x} y2={y} stroke="#e2e8f0" strokeWidth={1} />;
+        return (
+          <line
+            key={f}
+            x1={cx}
+            y1={cy}
+            x2={x}
+            y2={y}
+            stroke="#e2e8f0"
+            strokeWidth={1}
+          />
+        );
       })}
       {/* data polygon */}
-      <polygon points={dataPoly} fill="rgba(2,132,199,0.18)" stroke="#0284c7" strokeWidth={2} />
-      {/* data vertices */}
+      <polygon
+        points={dataPoly}
+        fill="rgba(2,132,199,0.16)"
+        stroke="#0284c7"
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      {/* data vertices — white halo keeps the dot legible over the fill */}
       {ORDER.map((f) => {
         const [x, y] = at(f, rScale(byKey.get(f)?.synthesis ?? 0));
-        return <circle key={f} cx={x} cy={y} r={3.5} fill="#0284c7" />;
+        return (
+          <circle key={f} cx={x} cy={y} r={4} fill="#0284c7" stroke="#ffffff" strokeWidth={1.5}>
+            <title>{`${AXIS_NAME[f]}: ${(byKey.get(f)?.synthesis ?? 0).toFixed(1)}σ`}</title>
+          </circle>
+        );
       })}
       {/* axis labels: DISC letter */}
       {ORDER.map((f) => {
-        const [x, y] = at(f, maxR + 16);
+        const [x, y] = at(f, maxR + 17);
         return (
           <text
             key={f}
@@ -75,10 +103,11 @@ export default function RadarChart({
             y={y}
             textAnchor="middle"
             dominantBaseline="middle"
-            className="fill-slate-700"
+            className="fill-slate-700 [font-variant-numeric:tabular-nums]"
             fontSize={13}
             fontWeight={800}
           >
+            <title>{AXIS_NAME[f]}</title>
             {DISC_LETTER[f]}
           </text>
         );

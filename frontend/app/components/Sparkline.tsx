@@ -1,4 +1,4 @@
-import { FACTORS, type Factor } from "../lib/api";
+import { DISC_LETTER, FACTORS, type Factor } from "../lib/api";
 
 // Tiny behavioral-pattern sparkline: A/B/C/D synthesis sigmas on a -3..+3 scale.
 export default function Sparkline({
@@ -12,12 +12,36 @@ export default function Sparkline({
   const xs = [10, 31, 52, 73];
   const y = (sigma: number) => H / 2 - (Math.max(-3, Math.min(3, sigma)) / 3) * (H / 2 - 4);
   const pts = FACTORS.map((f, i) => `${xs[i]},${y(synthesis[f] ?? 0).toFixed(1)}`).join(" ");
+  const label = FACTORS.map((f) => `${DISC_LETTER[f]} ${(synthesis[f] ?? 0).toFixed(1)}`).join(", ");
   return (
-    <svg width={W} height={H} role="img" aria-label="Behavioral pattern" className="shrink-0">
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label={`Behavioral pattern: ${label}`}
+      className="shrink-0"
+    >
+      {/* zero baseline */}
       <line x1={4} y1={H / 2} x2={W - 4} y2={H / 2} stroke="#e2e8f0" strokeWidth={1} />
-      <polyline points={pts} fill="none" stroke="#0f172a" strokeWidth={1.4} />
+      <polyline
+        points={pts}
+        fill="none"
+        stroke="#0f172a"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       {FACTORS.map((f, i) => (
-        <circle key={f} cx={xs[i]} cy={y(synthesis[f] ?? 0)} r={2.6} fill="#0f172a" />
+        <circle
+          key={f}
+          cx={xs[i]}
+          cy={y(synthesis[f] ?? 0)}
+          r={2.6}
+          fill="#0f172a"
+          stroke="#ffffff"
+          strokeWidth={1}
+        />
       ))}
     </svg>
   );
