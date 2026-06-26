@@ -23,6 +23,7 @@ services:
 
   api:
     build: ./backend
+    image: treadwell-assess-api:latest   # pin a name so prod can `up -d` a prebuilt image (no on-box build)
     container_name: treadwell-assess-api
     restart: unless-stopped
     env_file: .env
@@ -38,6 +39,7 @@ services:
 
   web:
     build: ./frontend
+    image: treadwell-assess-web:latest   # pin a name so prod can `up -d` a prebuilt image (no on-box build)
     container_name: treadwell-assess-web
     restart: unless-stopped
     environment:

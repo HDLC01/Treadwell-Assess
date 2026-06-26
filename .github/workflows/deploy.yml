@@ -1,11 +1,13 @@
 name: Deploy
 
-# Continuous deployment to the Bluehost VPS — a hosted runner SSHes in and runs
-# `git pull && docker compose --profile full up -d --build` (image built ON the VPS,
-# no registry; the runner only needs SSH).
+# Continuous deployment to the Bluehost VPS.
 #
-# NOTE: manual-only (workflow_dispatch) until Phase 5 lands the prod stack + secrets.
-# Phase 5 checklist before flipping this to auto-deploy on `push: [main]`:
+# The VPS is a single-core / 2 GB box, so we DO NOT build on it — building there
+# spikes load to ~60 and browns out every site on the machine. Instead the
+# GitHub-hosted runner builds the images, ships them over SSH, and the VPS only
+# loads + restarts (no `--build`).
+#
+# Manual-only (workflow_dispatch) until Phase 5. Before flipping to auto-deploy:
 #   - /opt/treadwell-assess exists on the VPS with this repo cloned
 #   - nginx server block: assess.wetreadwell.com -> 127.0.0.1:8896 (web) /api -> 8897
 #   - repo secrets VPS_HOST / VPS_USER / VPS_SSH_KEY set
@@ -18,23 +20,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  production:
+  build-and-ship:
     runs-on: ubuntu-latest
     environment: production          # required reviewer -> waits for approval
     steps:
-      - name: Deploy over SSH
+      - uses: actions/checkout@v6
+
+      - name: Build images on the runner (off the VPS)
+        run: |
+          docker build --platform linux/amd64 -t treadwell-assess-web:latest ./frontend
+          docker build --platform linux/amd64 -t treadwell-assess-api:latest ./backend
+
+      - name: Save images to a tarball
+        run: docker save treadwell-assess-web:latest treadwell-assess-api:latest | gzip > assess-images.tar.gz
+
+      - name: Copy the tarball to the VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: assess-images.tar.gz
+          target: /tmp
+
+      - name: Load + restart on the VPS (no build)
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          script_stop: true          # abort on the first failing command
+          script_stop: true
           script: |
             set -euo pipefail
             cd /opt/treadwell-assess
             git pull --ff-only
-            docker compose --profile full up -d --build
-            # wait until the API reports healthy, else fail the deploy
+            gunzip -c /tmp/assess-images.tar.gz | docker load
+            rm -f /tmp/assess-images.tar.gz
+            docker compose --profile full up -d
             for i in $(seq 1 24); do
               if curl -fsS http://localhost:8897/api/health >/dev/null; then
                 echo "assess healthy"; exit 0
