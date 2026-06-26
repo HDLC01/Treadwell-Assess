@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../lib/auth";
+import NotificationBell from "./NotificationBell";
 
 // One shared product nav for every employer page: brand + section links (with an
 // active state) on the left, and an account menu on the right. Candidate-facing
@@ -83,7 +84,9 @@ export default function AppHeader() {
         <div className="flex-1" />
 
         {authEnabled && user ? (
-          <div className="relative" ref={menuRef}>
+          <div className="flex items-center gap-1.5">
+            <NotificationBell />
+            <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
               aria-haspopup="menu"
@@ -119,6 +122,7 @@ export default function AppHeader() {
                 </button>
               </div>
             )}
+            </div>
           </div>
         ) : null}
       </div>

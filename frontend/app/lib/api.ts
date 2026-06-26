@@ -260,6 +260,18 @@ export const listAllCandidates = (params: { q?: string; role?: string; status?: 
   const qs = sp.toString();
   return request<CandidatesEnvelope>(`/candidates${qs ? `?${qs}` : ""}`);
 };
+export interface AssessNotification {
+  kind: "needs_target" | "completion";
+  at: string;
+  job_id: string;
+  job_name: string;
+  candidate_id?: string;
+  full_name?: string;
+  candidate_count?: number;
+}
+// Important admin notifications (no candidate results).
+export const listNotifications = () =>
+  request<{ items: AssessNotification[] }>(`/notifications`);
 export const patchCandidate = (id: string, patch: { bookmarked?: boolean }) =>
   request<{ ok: boolean }>(`/candidates/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 export const getCandidateReport = (id: string) =>

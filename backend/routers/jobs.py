@@ -330,6 +330,44 @@ def list_all_candidates(
     }
 
 
+@router.get("/notifications")
+def list_notifications(limit: int = Query(15, ge=1, le=50)):
+    """Important admin notifications — NO candidate results (@wetreadwell-gated):
+    jobs still missing a behavioral target (their candidates can't be scored) and
+    recent candidate completions to review. Action items first, then by recency."""
+    items = []
+    with connect() as conn:
+        for r in conn.execute(text(
+            "select j.id, j.name, j.created_at, "
+            "       (select count(*) from candidates c where c.job_id = j.id) as candidate_count "
+            "from jobs j where j.behavioral_target is null order by j.created_at desc"
+        )).mappings().all():
+            items.append({
+                "kind": "needs_target",
+                "job_id": str(r["id"]),
+                "job_name": r["name"],
+                "candidate_count": r["candidate_count"],
+                "at": str(r["created_at"]),
+            })
+        for r in conn.execute(text(
+            "select c.id, c.full_name, j.id as job_id, j.name as job_name, "
+            "       br.created_at as at "
+            "from candidates c join jobs j on j.id = c.job_id "
+            "join lateral (select created_at from behavioral_results b "
+            "              where b.candidate_id = c.id order by b.created_at desc limit 1) br on true "
+            "order by br.created_at desc limit :lim"
+        ), {"lim": limit}).mappings().all():
+            items.append({
+                "kind": "completion",
+                "candidate_id": str(r["id"]),
+                "full_name": r["full_name"],
+                "job_id": str(r["job_id"]),
+                "job_name": r["job_name"],
+                "at": str(r["at"]),
+            })
+    return {"items": items}
+
+
 @router.patch("/candidates/{candidate_id}")
 def patch_candidate(candidate_id: str, body: CandidatePatch):
     fields = body.model_dump(exclude_unset=True)
