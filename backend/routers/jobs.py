@@ -258,59 +258,37 @@ def list_candidates(
 @router.get("/candidates")
 def list_all_candidates(
     q: Optional[str] = Query(None),
-    min_fit: Optional[float] = Query(None, ge=0, le=5),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
 ):
-    """Cross-job candidate directory: every candidate with their role + fit.
+    """Cross-job candidate directory — identity + role + status ONLY.
 
-    Fit is computed against EACH candidate's own job target (joined per row),
-    so a candidate's stars mean the same here as on their job's table.
+    Treadwell policy: a candidate's RESULTS (behavioral fit, reference profile,
+    pattern, cognitive) are never commingled across candidates. This endpoint
+    deliberately returns NO results — view them on each candidate's own report.
     """
     with connect() as conn:
         rows = conn.execute(text(
             "select c.id, c.full_name, c.email, c.bookmarked, c.created_at, "
             "       j.id as job_id, j.name as job_name, "
-            "       j.behavioral_target, j.cognitive_target, "
-            "       br.synthesis_scores, br.created_at as assessed_at, "
-            "       rp.name as profile_name, rp.slug as profile_slug, "
-            "       cr.scaled_score as cognitive_score "
+            "       br.created_at as assessed_at "
             "from candidates c "
             "join jobs j on j.id = c.job_id "
-            "left join lateral (select * from behavioral_results b where b.candidate_id = c.id "
-            "                   order by b.created_at desc limit 1) br on true "
-            "left join reference_profiles rp on rp.id = br.reference_profile_id "
-            "left join lateral (select * from cognitive_results x where x.candidate_id = c.id "
-            "                   order by x.created_at desc limit 1) cr on true "
+            "left join lateral (select created_at from behavioral_results b "
+            "                   where b.candidate_id = c.id order by b.created_at desc limit 1) br on true "
             "order by c.created_at desc"
         )).mappings().all()
 
-    items = []
-    for r in rows:
-        target = r["behavioral_target"]
-        if isinstance(target, str):
-            target = json.loads(target)
-        synthesis = r["synthesis_scores"]
-        if isinstance(synthesis, str):
-            synthesis = json.loads(synthesis)
-        stars = behavioral_fit_stars(synthesis, target) if synthesis else None
-        cog = cognitive_fit(r["cognitive_score"], r["cognitive_target"])
-        items.append({
-            "id": str(r["id"]),
-            "full_name": r["full_name"],
-            "email": r["email"],
-            "bookmarked": r["bookmarked"],
-            "job_id": str(r["job_id"]),
-            "job_name": r["job_name"],
-            "behavioral_fit": stars,
-            "profile_name": r["profile_name"],
-            "profile_slug": r["profile_slug"],
-            "synthesis": synthesis,
-            "assessed_at": str(r["assessed_at"]) if r["assessed_at"] else None,
-            "cognitive_fit": cog,
-            "cognitive_score": r["cognitive_score"],
-            "has_behavioral": synthesis is not None,
-        })
+    items = [{
+        "id": str(r["id"]),
+        "full_name": r["full_name"],
+        "email": r["email"],
+        "bookmarked": r["bookmarked"],
+        "job_id": str(r["job_id"]),
+        "job_name": r["job_name"],
+        "assessed_at": str(r["assessed_at"]) if r["assessed_at"] else None,
+        "has_behavioral": r["assessed_at"] is not None,
+    } for r in rows]
 
     if q:
         needle = q.lower().strip()
@@ -318,8 +296,6 @@ def list_all_candidates(
                  if needle in i["full_name"].lower()
                  or needle in (i["email"] or "").lower()
                  or needle in (i["job_name"] or "").lower()]
-    if min_fit is not None:
-        items = [i for i in items if (i["behavioral_fit"] or 0) >= min_fit]
 
     total = len(items)
     start = (page - 1) * page_size

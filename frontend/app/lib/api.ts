@@ -248,10 +248,9 @@ export const listCandidates = (id: string, params: { q?: string; min_fit?: numbe
   return request<CandidatesEnvelope>(`/jobs/${id}/candidates${qs ? `?${qs}` : ""}`);
 };
 // Cross-job candidate directory (every candidate across all jobs).
-export const listAllCandidates = (params: { q?: string; min_fit?: number; page?: number }) => {
+export const listAllCandidates = (params: { q?: string; page?: number }) => {
   const sp = new URLSearchParams();
   if (params.q) sp.set("q", params.q);
-  if (params.min_fit != null) sp.set("min_fit", String(params.min_fit));
   if (params.page) sp.set("page", String(params.page));
   const qs = sp.toString();
   return request<CandidatesEnvelope>(`/candidates${qs ? `?${qs}` : ""}`);
