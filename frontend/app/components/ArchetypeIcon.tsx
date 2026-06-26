@@ -126,6 +126,42 @@ const ICONS: Record<string, IconDef> = {
       </>
     ),
   },
+  // Visionary — eye (sees where things are heading)
+  visionary: {
+    color: "#4f46e5",
+    glyph: (
+      <>
+        <path d="M2 12 Q12 4 22 12 Q12 20 2 12 Z" />
+        <circle cx="12" cy="12" r="2.6" fill="#fff" stroke="none" />
+      </>
+    ),
+  },
+  // Ranger — mountain peaks (self-reliant in open ground)
+  ranger: {
+    color: "#65a30d",
+    glyph: <path d="M2 20 L9 8 L13 14 L16 9 L22 20 Z" fill="#fff" stroke="none" />,
+  },
+  // Technician — gear (precise, to spec)
+  technician: {
+    color: "#0e7490",
+    glyph: (
+      <>
+        <circle cx="12" cy="12" r="4.5" />
+        <circle cx="12" cy="12" r="1.4" fill="#fff" stroke="none" />
+        <path d="M12 3 v2.6 M12 18.4 v2.6 M3 12 h2.6 M18.4 12 h2.6 M5.6 5.6 l1.9 1.9 M16.5 16.5 l1.9 1.9 M18.4 5.6 l-1.9 1.9 M5.6 18.4 l1.9 -1.9" />
+      </>
+    ),
+  },
+  // Sage — open book (depth of knowledge)
+  sage: {
+    color: "#7e22ce",
+    glyph: (
+      <>
+        <path d="M12 6 C9.5 4.3 6 4.3 3.5 5.2 V17.8 C6 16.9 9.5 16.9 12 18.6 C14.5 16.9 18 16.9 20.5 17.8 V5.2 C18 4.3 14.5 4.3 12 6 Z" />
+        <line x1="12" y1="6" x2="12" y2="18.6" />
+      </>
+    ),
+  },
   // Allrounder — asterisk (flexes every direction)
   allrounder: {
     color: "#64748b",

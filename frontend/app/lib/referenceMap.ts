@@ -1,5 +1,5 @@
 // Content for the /reference cheat sheet: a translation aid between Predictive
-// Index (PI) Reference Profiles and Treadwell Assess's 13 original archetypes.
+// Index (PI) Reference Profiles and Treadwell Assess's 17 original archetypes.
 //
 // Mappings are by BEHAVIORAL-FACTOR PATTERN (nearest archetype in 4-factor space),
 // not an equivalence. PI profile NAMES are used nominatively for comparison only;
@@ -12,7 +12,7 @@
 export type FactorLevel = "high" | "low" | "mid";
 export type PiGroup = "Analytical" | "Social" | "Stabilizing" | "Persistent";
 
-// ─── the 13 archetypes — mirror of backend/seed/data.py REFERENCE_PROFILES ─────
+// ─── the 17 archetypes — mirror of backend/seed/data.py REFERENCE_PROFILES ─────
 // (slug, name, tagline, description copied verbatim — keep in sync with the seed)
 export interface Archetype {
   slug: string;
@@ -107,6 +107,34 @@ export const ARCHETYPES: Archetype[] = [
       "Pathfinders work the frontier alone or in small groups: ambiguous problems, first-principles thinking, little need for applause.",
   },
   {
+    slug: "visionary",
+    name: "Visionary",
+    tagline: "A long-range strategist who sets the direction and drives toward it.",
+    description:
+      "Visionaries think in years, not weeks. They read where things are heading, commit to a bold direction, and push hard to get there — light on the fine print, heavy on the destination.",
+  },
+  {
+    slug: "ranger",
+    name: "Ranger",
+    tagline: "Independent and self-reliant; works steadily on their own terms.",
+    description:
+      "Rangers do their best work with autonomy and room to operate. They are self-directed and deliberate, set their own pace, and need little supervision to get hard things done.",
+  },
+  {
+    slug: "technician",
+    name: "Technician",
+    tagline: "A reliable, precise executor who delivers accurate work to spec.",
+    description:
+      "Technicians turn a plan into clean, repeatable results. They follow the method, check their work, and hit the spec every time — the person you trust with the build that has to be right.",
+  },
+  {
+    slug: "sage",
+    name: "Sage",
+    tagline: "A deep thinker driven by understanding and mastery.",
+    description:
+      "Sages chase the why behind the work. They study a subject until they truly understand it, value accuracy and depth over speed, and become the quiet expert others come to for answers.",
+  },
+  {
     slug: "allrounder",
     name: "Allrounder",
     tagline: "Flexible and balanced — adapts to what the situation needs.",
@@ -162,8 +190,8 @@ export const PI_PROFILES: PiProfile[] = [
     group: "Analytical",
     pattern: { d: "high", e: "low", p: "low", f: "low" },
     blurb: "Big-picture, analytical planner focused on long-term results.",
-    primarySlug: "pathfinder",
-    note: "Analytical, independent driver.",
+    primarySlug: "visionary",
+    note: "Long-range, big-picture driver → our Visionary.",
   },
   {
     name: "Controller",
@@ -178,9 +206,8 @@ export const PI_PROFILES: PiProfile[] = [
     group: "Analytical",
     pattern: { d: "low", e: "low", p: "high", f: "high" },
     blurb: "Methodical and fact-driven; decides only with the full data set.",
-    primarySlug: "craftsman",
-    altSlug: "examiner",
-    note: "Data-driven; also like Examiner.",
+    primarySlug: "examiner",
+    note: "Evidence-led, data-driven analyst.",
   },
   {
     name: "Specialist",
@@ -204,18 +231,16 @@ export const PI_PROFILES: PiProfile[] = [
     group: "Social",
     pattern: { d: "high", e: "high", p: "low", f: "low" },
     blurb: "Fast, inventive, and goal-driven; challenges the status quo.",
-    primarySlug: "catalyst",
-    altSlug: "trailblazer",
-    note: "Also like Trailblazer (independent, fast).",
+    primarySlug: "trailblazer",
+    note: "Fast, independent, challenges the status quo.",
   },
   {
     name: "Persuader",
     group: "Social",
     pattern: { d: "high", e: "high", p: "low", f: "low" },
     blurb: "Charismatic, confident communicator who motivates others.",
-    primarySlug: "catalyst",
-    altSlug: "connector",
-    note: "Relational pull; also like Connector.",
+    primarySlug: "connector",
+    note: "Wins people through relationships.",
   },
   {
     name: "Promoter",
@@ -223,8 +248,7 @@ export const PI_PROFILES: PiProfile[] = [
     pattern: { d: "low", e: "high", p: "low", f: "low" },
     blurb: "Gregarious, casual, high-energy people-mover.",
     primarySlug: "dynamo",
-    altSlug: "connector",
-    note: "Also like Connector.",
+    note: "High-energy people-mover.",
   },
   {
     name: "Altruist",
@@ -249,8 +273,7 @@ export const PI_PROFILES: PiProfile[] = [
     pattern: { d: "low", e: "low", p: "high", f: "high" },
     blurb: "Reliable, pragmatic, steady team contributor.",
     primarySlug: "anchor",
-    altSlug: "steward",
-    note: "Reliable, steady; also like Steward.",
+    note: "Reliable, pragmatic, steady.",
   },
   {
     name: "Guardian",
@@ -258,16 +281,15 @@ export const PI_PROFILES: PiProfile[] = [
     pattern: { d: "low", e: "low", p: "high", f: "high" },
     blurb: "Dependable and structured; oriented to process and rules.",
     primarySlug: "steward",
-    altSlug: "anchor",
-    note: "Process & rules custodian; also like Anchor.",
+    note: "Dependable; process & rules custodian.",
   },
   {
     name: "Craftsman",
     group: "Stabilizing",
     pattern: { d: "low", e: "low", p: "high", f: "high" },
     blurb: "Steady, precise, planful executor who values accuracy.",
-    primarySlug: "craftsman",
-    note: "Same name — deep skill, steady pace.",
+    primarySlug: "technician",
+    note: "Precise, planful executor; values accuracy. (Shares PI's name.)",
   },
   {
     name: "Adapter",
@@ -283,22 +305,20 @@ export const PI_PROFILES: PiProfile[] = [
     group: "Persistent",
     pattern: { d: "high", e: "low", p: "high", f: "low" },
     blurb: "Independent, self-reliant, and deliberate.",
-    primarySlug: "pathfinder",
-    altSlug: "trailblazer",
-    note: "Independent; also like Trailblazer (we skew faster-paced).",
+    primarySlug: "ranger",
+    note: "Independent, self-reliant, deliberate.",
   },
   {
     name: "Scholar",
     group: "Persistent",
     pattern: { d: "low", e: "low", p: "high", f: "high" },
     blurb: "Analytical and precise; driven by deep understanding.",
-    primarySlug: "examiner",
-    altSlug: "craftsman",
-    note: "Evidence-driven; also like Craftsman.",
+    primarySlug: "sage",
+    note: "Driven by deep understanding and mastery.",
   },
 ];
 
-// ─── Table B: Treadwell archetype → closest PI profile(s) (all 13) ────────────
+// ─── Table B: Treadwell archetype → matching PI profile (all 17, one-to-one) ──
 // Authored (not auto-inverted) because the two directions aren't strict inverses.
 export interface ArchetypeToPi {
   slug: string;
@@ -312,30 +332,35 @@ export const ARCHETYPE_TO_PI: ArchetypeToPi[] = [
   {
     slug: "trailblazer",
     shape: "↑Dominance, +Influence, fast, informal",
-    piNames: ["Maverick", "Captain"],
-    note: "Not Venturer — despite the name.",
+    piNames: ["Maverick"],
+    note: "Fast and independent — PI's Maverick, not Venturer.",
     flag: true,
   },
-  { slug: "catalyst", shape: "↑Dominance ↑Influence, fast", piNames: ["Captain", "Maverick", "Persuader"] },
-  { slug: "dynamo", shape: "↑Influence, fast, informal", piNames: ["Promoter", "Persuader"] },
-  { slug: "connector", shape: "↑Influence, balanced drive", piNames: ["Promoter", "Persuader"] },
+  { slug: "catalyst", shape: "↑Dominance ↑Influence, fast", piNames: ["Captain"] },
+  { slug: "dynamo", shape: "↑Influence, fast, informal", piNames: ["Promoter"] },
+  { slug: "connector", shape: "↑Influence, relationship-led", piNames: ["Persuader"] },
   { slug: "harmonizer", shape: "+Influence ↑Steadiness, warm", piNames: ["Altruist"] },
   { slug: "diplomat", shape: "+Influence +Steadiness, precise", piNames: ["Collaborator"] },
-  { slug: "anchor", shape: "↑Steadiness, low Dominance", piNames: ["Operator", "Guardian"] },
-  { slug: "steward", shape: "↑Steadiness ↑precision", piNames: ["Guardian", "Operator"] },
+  { slug: "anchor", shape: "↑Steadiness, low Dominance", piNames: ["Operator"] },
+  { slug: "steward", shape: "↑Steadiness ↑precision, rule-minded", piNames: ["Guardian"] },
+  { slug: "craftsman", shape: "↑Steadiness ↑precision, reserved", piNames: ["Specialist"] },
   {
-    slug: "craftsman",
-    shape: "↑Steadiness ↑precision, reserved",
-    piNames: ["Craftsman", "Specialist", "Analyzer"],
+    slug: "technician",
+    shape: "↑Steadiness ↑precision, executes to spec",
+    piNames: ["Craftsman"],
+    note: "Shares PI's name; the precise executor.",
   },
-  { slug: "examiner", shape: "↑precision, evidence-led", piNames: ["Analyzer", "Scholar"] },
-  { slug: "architect", shape: "↑Dominance ↑precision", piNames: ["Controller", "Strategist"] },
+  { slug: "examiner", shape: "↑precision, evidence-led", piNames: ["Analyzer"] },
+  { slug: "sage", shape: "↑precision ↑Steadiness, deep understanding", piNames: ["Scholar"] },
+  { slug: "architect", shape: "↑Dominance ↑precision", piNames: ["Controller"] },
+  { slug: "visionary", shape: "↑Dominance, reserved, fast, big-picture", piNames: ["Strategist"] },
   {
     slug: "pathfinder",
     shape: "↑Dominance, reserved, analytical",
-    piNames: ["Strategist", "Venturer"],
+    piNames: ["Venturer"],
     note: "PI's “trailblazer” (Venturer) lands here.",
     flag: true,
   },
+  { slug: "ranger", shape: "↑Dominance, reserved, steady, independent", piNames: ["Individualist"] },
   { slug: "allrounder", shape: "center on all four", piNames: ["Adapter"] },
 ];

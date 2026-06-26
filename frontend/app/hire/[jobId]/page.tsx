@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -33,6 +33,144 @@ const DEFAULT_TARGET: BehavioralTarget = {
   C: { low: -1, high: 1 },
   D: { low: -1, high: 1 },
 };
+
+// Every job-target band is ONE locked width so the four factors read uniformly
+// (Will's call). The employer only positions the band; the width never changes.
+const TARGET_WIDTH = 1.5; // σ — fixed width of every target band
+const HALF = TARGET_WIDTH / 2; // 0.75σ on each side of the center
+const STEP = 0.5; // the band center snaps to this σ grid
+const CENTER_MIN = -3 + HALF; // keep the band fully inside the −3…+3 scale
+const CENTER_MAX = 3 - HALF;
+
+const clampCenter = (c: number) => Math.min(CENTER_MAX, Math.max(CENTER_MIN, c));
+
+// Coerce any saved/loaded target to the locked width, centered on its midpoint —
+// so older variable-width targets render uniformly and re-save consistently.
+function normalizeTarget(t: BehavioralTarget): BehavioralTarget {
+  const out = {} as BehavioralTarget;
+  for (const f of FACTORS) {
+    const mid = clampCenter(Math.round((t[f].low + t[f].high) / 2 / STEP) * STEP);
+    out[f] = { low: mid - HALF, high: mid + HALF };
+  }
+  return out;
+}
+
+// One factor's locked-width target band: drag the band (or click the track) to
+// reposition; arrow keys nudge it. No more low/high sliders — width is fixed.
+function FactorTarget({
+  letter,
+  name,
+  ends,
+  low,
+  high,
+  marker,
+  onCenter,
+}: {
+  letter: string;
+  name: string;
+  ends: [string, string];
+  low: number;
+  high: number;
+  marker: { value: number; name: string } | null;
+  onCenter: (c: number) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const pct = (v: number) => `${((v + 3) / 6) * 100}%`;
+  const fmt = (v: number) => `${v > 0 ? "+" : ""}${v}σ`;
+  const center = low + HALF;
+
+  const centerFromX = (clientX: number) => {
+    const el = trackRef.current;
+    if (!el) return center;
+    const rect = el.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    return clampCenter(Math.round((frac * 6 - 3) / STEP) * STEP);
+  };
+
+  const onBandDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    dragging.current = true;
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  };
+  const onBandMove = (e: React.PointerEvent) => {
+    if (dragging.current) onCenter(centerFromX(e.clientX));
+  };
+  const onBandUp = (e: React.PointerEvent) => {
+    dragging.current = false;
+    (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault();
+      onCenter(clampCenter(center + STEP));
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault();
+      onCenter(clampCenter(center - STEP));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      onCenter(CENTER_MIN);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      onCenter(CENTER_MAX);
+    }
+  };
+
+  return (
+    <div>
+      <p className="mb-2 text-sm font-bold text-slate-800">
+        ({letter}) {name}
+      </p>
+      <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500">
+        <span className="w-20 shrink-0 text-right">{ends[0]}</span>
+        <div
+          ref={trackRef}
+          onPointerDown={(e) => onCenter(centerFromX(e.clientX))}
+          className="relative h-9 flex-1 cursor-pointer touch-none rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200"
+        >
+          {[-3, -2, -1, 0, 1, 2, 3].map((t) => (
+            <span
+              key={t}
+              className="absolute top-1/2 h-2.5 w-px -translate-y-1/2 bg-slate-300"
+              style={{ left: pct(t) }}
+            />
+          ))}
+          <div
+            role="slider"
+            tabIndex={0}
+            aria-label={`${name} target range`}
+            aria-valuemin={-3}
+            aria-valuemax={3}
+            aria-valuenow={center}
+            aria-valuetext={`${fmt(low)} to ${fmt(high)}`}
+            onPointerDown={onBandDown}
+            onPointerMove={onBandMove}
+            onPointerUp={onBandUp}
+            onKeyDown={onKey}
+            className="absolute top-1/2 flex h-6 -translate-y-1/2 cursor-grab touch-none items-center justify-center rounded-full bg-orange-300 shadow-sm ring-1 ring-orange-400 transition-colors hover:bg-orange-400/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-600 active:cursor-grabbing"
+            style={{ left: pct(low), width: `calc(${pct(high)} - ${pct(low)})` }}
+          >
+            <span className="h-2.5 w-2.5 rounded-full bg-white/90 ring-1 ring-orange-500/40" />
+          </div>
+          {marker && (
+            <span
+              className="pointer-events-none absolute top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-sky-600 shadow"
+              style={{ left: pct(marker.value) }}
+              title={`${marker.name}: ${fmt(marker.value)}`}
+            />
+          )}
+        </div>
+        <span className="w-20 shrink-0">{ends[1]}</span>
+      </div>
+      <p className="mt-2 pl-[5.75rem] text-xs text-slate-500">
+        Target band{" "}
+        <span className="font-mono font-semibold tabular-nums text-slate-700">{fmt(low)}</span> to{" "}
+        <span className="font-mono font-semibold tabular-nums text-slate-700">{fmt(high)}</span>
+        <span className="text-slate-400"> — drag to reposition</span>
+      </p>
+    </div>
+  );
+}
 
 export default function JobPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params);
@@ -129,7 +267,9 @@ function CopyLinkButton({ jobId }: { jobId: string }) {
 
 // ── Job Target tab ────────────────────────────────────────────────────────────
 function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
-  const [target, setTarget] = useState<BehavioralTarget>(job.behavioral_target ?? DEFAULT_TARGET);
+  const [target, setTarget] = useState<BehavioralTarget>(() =>
+    normalizeTarget(job.behavioral_target ?? DEFAULT_TARGET),
+  );
   const [cog, setCog] = useState<string>(job.cognitive_target?.toString() ?? "");
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -149,8 +289,8 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
   }, [job.id]);
   const compare = candidates.find((c) => c.id === compareId) ?? null;
 
-  const setRange = (f: Factor, key: "low" | "high", v: number) =>
-    setTarget((t) => ({ ...t, [f]: { ...t[f], [key]: v } }));
+  const setCenter = (f: Factor, c: number) =>
+    setTarget((t) => ({ ...t, [f]: { low: c - HALF, high: c + HALF } }));
 
   const save = async () => {
     setSaving(true);
@@ -162,8 +302,6 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
     setSavedAt(Date.now());
     onSaved();
   };
-
-  const pct = (v: number) => `${((v + 3) / 6) * 100}%`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -198,56 +336,22 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
         )}
 
         <div className="mt-6 flex flex-col gap-7">
-          {FACTORS.map((f) => {
-            const rng = target[f];
-            return (
-              <div key={f}>
-                <p className="mb-1 text-sm font-bold text-slate-800">
-                  ({DISC_LETTER[f]}) {job.factor_names[f]}
-                </p>
-                <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                  <span className="w-20 text-right">{FACTOR_ENDS[f][0]}</span>
-                  <div className="relative h-7 flex-1 rounded-full bg-slate-100">
-                    <span
-                      className="absolute top-1/2 h-4 -translate-y-1/2 rounded-full bg-orange-300/80"
-                      style={{ left: pct(Math.min(rng.low, rng.high)), width: `calc(${pct(Math.max(rng.low, rng.high))} - ${pct(Math.min(rng.low, rng.high))})` }}
-                    />
-                    {[-3, -2, -1, 0, 1, 2, 3].map((t) => (
-                      <span key={t} className="absolute top-1/2 h-2.5 w-px -translate-y-1/2 bg-slate-300" style={{ left: pct(t) }} />
-                    ))}
-                    {compare?.synthesis && (
-                      <span
-                        className="absolute top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-sky-600 shadow"
-                        style={{ left: pct(compare.synthesis[f]) }}
-                        title={`${compare.full_name}: ${compare.synthesis[f] > 0 ? "+" : ""}${compare.synthesis[f]}σ`}
-                      />
-                    )}
-                  </div>
-                  <span className="w-20">{FACTOR_ENDS[f][1]}</span>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 sm:pl-22">
-                  <label className="flex min-w-0 items-center gap-2">
-                    Low
-                    <input
-                      type="range" min={-3} max={3} step={0.5} value={rng.low}
-                      onChange={(e) => setRange(f, "low", Number(e.target.value))}
-                      className="w-28 accent-sky-600 sm:w-40"
-                    />
-                    <span className="w-8 font-mono">{rng.low > 0 ? `+${rng.low}` : rng.low}σ</span>
-                  </label>
-                  <label className="flex min-w-0 items-center gap-2">
-                    High
-                    <input
-                      type="range" min={-3} max={3} step={0.5} value={rng.high}
-                      onChange={(e) => setRange(f, "high", Number(e.target.value))}
-                      className="w-28 accent-sky-600 sm:w-40"
-                    />
-                    <span className="w-8 font-mono">{rng.high > 0 ? `+${rng.high}` : rng.high}σ</span>
-                  </label>
-                </div>
-              </div>
-            );
-          })}
+          {FACTORS.map((f) => (
+            <FactorTarget
+              key={f}
+              letter={DISC_LETTER[f]}
+              name={job.factor_names[f]}
+              ends={FACTOR_ENDS[f]}
+              low={target[f].low}
+              high={target[f].high}
+              marker={
+                compare?.synthesis
+                  ? { value: compare.synthesis[f], name: compare.full_name }
+                  : null
+              }
+              onCenter={(c) => setCenter(f, c)}
+            />
+          ))}
         </div>
         <div className="mt-6 flex items-center gap-3 border-t border-slate-100 pt-4">
           <label className="text-xs font-semibold text-slate-600">

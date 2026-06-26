@@ -122,6 +122,30 @@ REFERENCE_PROFILES: list[dict] = [
      "description": "Pathfinders work the frontier alone or in small groups: ambiguous problems, "
                     "first-principles thinking, little need for applause.",
      "ideal": (1.0, -1.5, -1.0, 0.5)},
+    {"slug": "visionary", "name": "Visionary",
+     "tagline": "A long-range strategist who sets the direction and drives toward it.",
+     "description": "Visionaries think in years, not weeks. They read where things are heading, "
+                    "commit to a bold direction, and push hard to get there — light on the fine "
+                    "print, heavy on the destination.",
+     "ideal": (1.5, -1.0, -1.5, -1.0)},
+    {"slug": "ranger", "name": "Ranger",
+     "tagline": "Independent and self-reliant; works steadily on their own terms.",
+     "description": "Rangers do their best work with autonomy and room to operate. They are "
+                    "self-directed and deliberate, set their own pace, and need little supervision "
+                    "to get hard things done.",
+     "ideal": (1.5, -1.5, 1.0, -0.5)},
+    {"slug": "technician", "name": "Technician",
+     "tagline": "A reliable, precise executor who delivers accurate work to spec.",
+     "description": "Technicians turn a plan into clean, repeatable results. They follow the "
+                    "method, check their work, and hit the spec every time — the person you trust "
+                    "with the build that has to be right.",
+     "ideal": (-0.5, -0.8, 1.3, 1.3)},
+    {"slug": "sage", "name": "Sage",
+     "tagline": "A deep thinker driven by understanding and mastery.",
+     "description": "Sages chase the why behind the work. They study a subject until they truly "
+                    "understand it, value accuracy and depth over speed, and become the quiet "
+                    "expert others come to for answers.",
+     "ideal": (-1.0, -1.5, 1.0, 2.0)},
     {"slug": "allrounder", "name": "Allrounder",
      "tagline": "Flexible and balanced — adapts to what the situation needs.",
      "description": "Allrounders sit near the middle on every drive, which is its own strength: they "

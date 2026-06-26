@@ -89,7 +89,7 @@ imported. Shares only the physical VPS (50.6.110.215).
    Tested via `backend/cognitive_test.py`.
 4. ✅ Candidate detail + reports: per-candidate report page (`/hire/[jobId]/candidate/
    [candidateId]`) with a DISC radar (`RadarChart`), cognitive donut (`CognitiveGauge`),
-   and a per-archetype emblem (`ArchetypeIcon` — 13 themed monoline SVG glyphs by slug,
+   and a per-archetype emblem (`ArchetypeIcon` — 17 themed monoline SVG glyphs by slug,
    also shown on the dashboard table + candidate completion screen);
    `GET /candidates/{id}/report` (JSON), `/report.pdf` (fpdf2 via `report_pdf.py`, fetched
    as a blob WITH the bearer header), `POST /candidates/{id}/email` (`email_sender.py`,

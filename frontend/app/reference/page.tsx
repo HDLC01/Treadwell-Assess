@@ -12,7 +12,7 @@ import {
 } from "../lib/referenceMap";
 
 // /reference — a cheat sheet that translates Predictive Index Reference Profiles
-// into Treadwell Assess's 13 original archetypes (and back). Mappings are by
+// into Treadwell Assess's 17 original archetypes (and back). Mappings are by
 // behavioral-factor pattern; it's a translation aid, not an equivalence.
 
 const GROUP_BADGE: Record<PiGroup, string> = {
@@ -103,9 +103,9 @@ export default function ReferencePage() {
             Coming from Predictive Index? Here&apos;s the map.
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-            Treadwell Assess uses its own 13 archetypes. If your team thinks in PI Reference
-            Profiles, this page shows the closest Treadwell archetype for each PI profile — and
-            the reverse. Matches are based on the underlying behavioral-factor pattern, so treat
+            Treadwell Assess uses its own 17 archetypes. If your team thinks in PI Reference
+            Profiles, this page shows the matching Treadwell archetype for each PI profile — and
+            the reverse, one-to-one. Matches are based on the underlying behavioral-factor pattern, so treat
             this as a <span className="font-semibold text-slate-800">translation aid, not an exact
             equivalence</span>.
           </p>
@@ -171,7 +171,7 @@ export default function ReferencePage() {
               Pattern reads <span className="font-semibold">D</span>ominance ·{" "}
               <span className="font-semibold">E</span>xtraversion ·{" "}
               <span className="font-semibold">P</span>atience ·{" "}
-              <span className="font-semibold">F</span>ormality. ↑ high · ↓ low · – mid.
+              <span className="font-semibold">F</span>ormality. ↑ high · ↓ low · – mid. Each PI profile maps to a unique archetype.
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -217,9 +217,9 @@ export default function ReferencePage() {
         {/* Table B — Treadwell → PI */}
         <section className="rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-bold text-slate-800">Our 13 archetypes → closest PI profile</h2>
+            <h2 className="text-sm font-bold text-slate-800">Our 17 archetypes → matching PI profile</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              The reverse lookup: see a Treadwell archetype on a report, recall the PI label it&apos;s near.
+              The reverse lookup: see a Treadwell archetype on a report, recall the one PI label it maps to.
             </p>
           </div>
           <div className="overflow-x-auto">
