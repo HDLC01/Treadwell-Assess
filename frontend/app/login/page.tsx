@@ -22,7 +22,12 @@ function LoginInner() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 text-slate-100">
       <main className="flex w-full max-w-sm flex-col items-center gap-6 text-center">
         <div className="flex items-center gap-3">
-          <span className="h-4 w-4 rounded bg-sky-500" />
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-sky-400 to-sky-600 shadow-sm">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" aria-hidden>
+              <circle cx="12" cy="12" r="8" />
+              <circle cx="12" cy="12" r="3.1" fill="#fff" stroke="none" />
+            </svg>
+          </span>
           <span className="text-sm font-bold uppercase tracking-[0.3em] text-slate-400">
             Treadwell Assess
           </span>

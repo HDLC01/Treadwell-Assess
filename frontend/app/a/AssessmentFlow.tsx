@@ -560,14 +560,21 @@ export default function AssessmentFlow() {
 
 function Shell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
-      <main
-        className={`mx-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 ${
-          wide ? "max-w-3xl" : "max-w-lg"
-        }`}
-      >
-        {children}
-      </main>
+    <div className="min-h-dvh bg-slate-50 px-4 py-8 sm:py-10">
+      <div className={`mx-auto ${wide ? "max-w-3xl" : "max-w-lg"}`}>
+        <div className="mb-4 flex items-center justify-center gap-2.5">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-sky-400 to-sky-600 shadow-sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" aria-hidden>
+              <circle cx="12" cy="12" r="8" />
+              <circle cx="12" cy="12" r="3.1" fill="#fff" stroke="none" />
+            </svg>
+          </span>
+          <span className="text-sm font-extrabold tracking-tight text-slate-900">Treadwell Assess</span>
+        </div>
+        <main className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

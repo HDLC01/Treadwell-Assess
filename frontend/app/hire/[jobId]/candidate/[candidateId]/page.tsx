@@ -14,6 +14,8 @@ import FactorBars from "../../../../components/FactorBars";
 import RadarChart from "../../../../components/RadarChart";
 import CognitiveGauge from "../../../../components/CognitiveGauge";
 import ArchetypeIcon from "../../../../components/ArchetypeIcon";
+import AppHeader from "../../../../components/AppHeader";
+import { btnPrimary, btnSecondary, inputCls } from "../../../../lib/ui";
 
 const FIT_BADGE: Record<string, string> = {
   strong: "bg-emerald-100 text-emerald-700",
@@ -102,16 +104,12 @@ export default function CandidatePage({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={download}
-              disabled={downloading}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-            >
+            <button onClick={download} disabled={downloading} className={btnSecondary}>
               {downloading ? "Preparing…" : "Download PDF"}
             </button>
             <button
               onClick={() => { setEmailOpen((v) => !v); setNote(null); }}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700"
+              className={btnPrimary}
             >
               Email report
             </button>
@@ -125,13 +123,9 @@ export default function CandidatePage({
               onChange={(e) => setEmailTo(e.target.value)}
               type="email"
               placeholder="recipient@example.com"
-              className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className={`flex-1 ${inputCls}`}
             />
-            <button
-              onClick={send}
-              disabled={sending || emailTo.trim().length < 3}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700 disabled:opacity-50"
-            >
+            <button onClick={send} disabled={sending || emailTo.trim().length < 3} className={btnPrimary}>
               {sending ? "Sending…" : "Send"}
             </button>
           </div>
@@ -147,7 +141,7 @@ export default function CandidatePage({
         )}
 
         {/* Behavioral */}
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-800">Behavioral Fit</h2>
             {behavioral ? <Stars value={behavioral.fit_stars} /> : <span className="text-xs text-slate-400">—</span>}
@@ -211,7 +205,7 @@ export default function CandidatePage({
         </section>
 
         {/* Cognitive */}
-        <section className="mt-5 rounded-xl border border-slate-200 bg-white p-5">
+        <section className="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm p-5">
           <h2 className="text-sm font-bold text-slate-800">Cognitive</h2>
           {cognitive ? (
             <>
@@ -269,6 +263,7 @@ function Bullets({ title, items, dot }: { title: string; items: string[]; dot: s
 function Frame({ jobId, children }: { jobId: string; children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50">
+      <AppHeader />
       <div className="mx-auto max-w-3xl px-4 pt-6">
         <Link href={`/hire/${jobId}`} className="text-xs font-semibold text-sky-600 hover:underline">
           ‹ Back to candidates

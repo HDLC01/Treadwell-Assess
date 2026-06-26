@@ -19,6 +19,8 @@ import {
 import Stars from "../../components/Stars";
 import Sparkline from "../../components/Sparkline";
 import ArchetypeIcon from "../../components/ArchetypeIcon";
+import AppHeader from "../../components/AppHeader";
+import { btnPrimary, btnSecondary, inputCls } from "../../lib/ui";
 
 const FACTOR_ENDS: Record<Factor, [string, string]> = {
   A: ["Collaborative", "Independent"],
@@ -231,12 +233,7 @@ export default function JobPage({ params }: { params: Promise<{ jobId: string }>
 function Frame({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3">
-          <span className="h-3.5 w-3.5 rounded bg-sky-500" />
-          <span className="text-sm font-extrabold tracking-wide text-slate-900">Treadwell Assess</span>
-        </div>
-      </header>
+      <AppHeader />
       {children}
     </div>
   );
@@ -256,11 +253,22 @@ function CopyLinkButton({ jobId }: { jobId: string }) {
     }
   };
   return (
-    <button
-      onClick={copy}
-      className="rounded-lg border border-sky-600 px-4 py-2 text-sm font-bold text-sky-700 transition hover:bg-sky-50"
-    >
-      {copied ? "Copied!" : "🔗 Copy assessment link"}
+    <button onClick={copy} className={btnSecondary}>
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+      {copied ? "Copied!" : "Copy assessment link"}
     </button>
   );
 }
@@ -305,7 +313,7 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
         <p className="text-sm font-bold text-slate-800">Behavioral Target</p>
         <p className="mt-1 text-xs text-slate-500">
           Your ideal candidate will likely fall into these highlighted ranges of behaviors.
@@ -359,24 +367,20 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
             <input
               value={cog}
               onChange={(e) => setCog(e.target.value.replace(/[^0-9]/g, ""))}
-              className="ml-2 w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              className={`ml-2 w-20 ${inputCls}`}
               placeholder="—"
             />
           </label>
           <div className="flex-1" />
           {savedAt && <span className="text-xs text-emerald-600">Saved ✓</span>}
-          <button
-            onClick={save}
-            disabled={saving}
-            className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-bold text-white hover:bg-sky-700 disabled:opacity-50"
-          >
+          <button onClick={save} disabled={saving} className={btnPrimary}>
             {saving ? "Saving…" : "Save target"}
           </button>
         </div>
       </div>
 
       {job.key_characteristics.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
           <p className="text-sm font-bold text-slate-800">Key Characteristics</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {job.key_characteristics.map((c) => (
@@ -389,7 +393,7 @@ function TargetTab({ job, onSaved }: { job: JobDetail; onSaved: () => void }) {
       )}
 
       {job.matched_profiles.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
           <p className="text-sm font-bold text-slate-800">Common Reference Profiles</p>
           <p className="mt-1 text-xs text-slate-500">
             Candidates matching this target often land in these profiles.
@@ -444,7 +448,7 @@ function CandidatesTab({ jobId }: { jobId: string }) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
         <select
           value={minFit}

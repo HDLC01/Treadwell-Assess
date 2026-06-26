@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import ArchetypeIcon from "../components/ArchetypeIcon";
+import AppHeader from "../components/AppHeader";
 import {
   ARCHETYPE_BY_SLUG,
   ARCHETYPE_TO_PI,
@@ -73,18 +74,14 @@ function ArchetypeCell({ slug, size = 26 }: { slug: string; size?: number }) {
 function Frame({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-2">
-            <span className="h-3.5 w-3.5 rounded bg-sky-500" />
-            <span className="text-sm font-extrabold tracking-wide text-slate-900">Treadwell Assess</span>
-            <span className="ml-2 text-xs text-slate-400">PI ↔ Archetype reference</span>
-          </div>
-          <Link href="/hire" className="text-xs font-semibold text-sky-600 hover:text-sky-700">
+      <AppHeader
+        subtitle="PI ↔ Archetype reference"
+        right={
+          <Link href="/hire" className="text-xs font-semibold text-sky-600 transition hover:text-sky-700">
             ← Hiring Center
           </Link>
-        </div>
-      </header>
+        }
+      />
       {children}
     </div>
   );
