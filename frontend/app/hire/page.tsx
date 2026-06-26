@@ -227,8 +227,8 @@ export default function HiringCenterPage() {
             <p className="text-sm font-bold text-slate-900">Delete this job?</p>
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
               <span className="font-semibold">{deleting.name}</span> and its {deleting.candidate_count}{" "}
-              candidate{deleting.candidate_count === 1 ? "" : "s"} (with all their results) will be
-              permanently removed. This can&apos;t be undone.
+              candidate{deleting.candidate_count === 1 ? "" : "s"}{" "}
+              (with all their results) will be permanently removed. This can&apos;t be undone.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setDeleting(null)} disabled={busy} className={btnSecondary}>
