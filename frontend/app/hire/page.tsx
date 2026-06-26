@@ -34,29 +34,19 @@ export default function HiringCenterPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <AppHeader
-        subtitle="Hiring Center"
-        right={
-          <>
-            <Link
-              href="/reference"
-              className="hidden text-xs font-semibold text-sky-600 transition hover:text-sky-700 sm:inline"
-            >
-              PI ↔ Archetype reference
-            </Link>
+      <AppHeader />
+
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h1 className="text-xl font-extrabold tracking-tight text-slate-900">Jobs</h1>
+          <div className="flex items-center gap-3">
+            {!loading && !error && jobs.length > 0 && (
+              <span className="text-xs text-slate-400">{jobs.length} total</span>
+            )}
             <button onClick={() => setShowNew((v) => !v)} className={btnPrimary}>
               + New job
             </button>
-          </>
-        }
-      />
-
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-5 flex items-end justify-between">
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-900">Jobs</h1>
-          {!loading && !error && jobs.length > 0 && (
-            <span className="text-xs text-slate-400">{jobs.length} total</span>
-          )}
+          </div>
         </div>
         {showNew && (
           <div className={`mb-6 flex flex-wrap items-end gap-3 p-4 ${card}`}>

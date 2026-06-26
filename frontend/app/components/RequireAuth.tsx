@@ -40,22 +40,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     );
   }
 
-  return (
-    <>
-      {authEnabled && user && (
-        <div className="flex items-center justify-end gap-3 border-b border-slate-800 bg-slate-950 px-4 py-1.5 text-xs text-slate-400">
-          <span>
-            Signed in as <span className="font-medium text-slate-200">{email}</span>
-          </span>
-          <button
-            onClick={() => signOut().then(() => router.replace("/login"))}
-            className="rounded border border-slate-700 px-2 py-0.5 font-medium text-slate-300 transition hover:bg-slate-800"
-          >
-            Sign out
-          </button>
-        </div>
-      )}
-      {children}
-    </>
-  );
+  // The "signed in as / sign out" affordance now lives in AppHeader's account
+  // menu, so the gate just renders the page once auth passes.
+  return <>{children}</>;
 }

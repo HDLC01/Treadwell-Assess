@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import ArchetypeIcon from "../components/ArchetypeIcon";
 import AppHeader from "../components/AppHeader";
 import {
@@ -74,14 +73,7 @@ function ArchetypeCell({ slug, size = 26 }: { slug: string; size?: number }) {
 function Frame({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50">
-      <AppHeader
-        subtitle="PI ↔ Archetype reference"
-        right={
-          <Link href="/hire" className="text-xs font-semibold text-sky-600 transition hover:text-sky-700">
-            ← Hiring Center
-          </Link>
-        }
-      />
+      <AppHeader />
       {children}
     </div>
   );

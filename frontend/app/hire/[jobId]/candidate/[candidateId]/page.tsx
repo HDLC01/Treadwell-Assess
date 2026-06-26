@@ -15,7 +15,7 @@ import RadarChart from "../../../../components/RadarChart";
 import CognitiveGauge from "../../../../components/CognitiveGauge";
 import ArchetypeIcon from "../../../../components/ArchetypeIcon";
 import AppHeader from "../../../../components/AppHeader";
-import { btnPrimary, btnSecondary, btnGhost, inputCls } from "../../../../lib/ui";
+import { btnPrimary, btnSecondary, inputCls } from "../../../../lib/ui";
 
 const FIT_BADGE: Record<string, string> = {
   strong: "bg-emerald-100 text-emerald-700",
@@ -391,17 +391,18 @@ function Frame({ jobId, children }: { jobId: string; children: React.ReactNode }
   return (
     <div className="min-h-screen bg-slate-50 print:bg-white">
       <div className="print:hidden">
-        <AppHeader
-          subtitle="Candidate report"
-          right={
-            <Link href={`/hire/${jobId}`} className={btnGhost}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-              Back to candidates
-            </Link>
-          }
-        />
+        <AppHeader />
+        <div className="mx-auto max-w-3xl px-4 pt-6">
+          <Link
+            href={`/hire/${jobId}`}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 transition hover:text-sky-700"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            Back to candidates
+          </Link>
+        </div>
       </div>
       {children}
     </div>

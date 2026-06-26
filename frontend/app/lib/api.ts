@@ -133,6 +133,9 @@ export interface CandidateRow {
   full_name: string;
   email: string | null;
   bookmarked: boolean;
+  // present on the cross-job directory (/candidates); omitted on a job's own table
+  job_id?: string;
+  job_name?: string;
   behavioral_fit: number | null;
   profile_name: string | null;
   profile_slug: string | null;
@@ -243,6 +246,15 @@ export const listCandidates = (id: string, params: { q?: string; min_fit?: numbe
   if (params.page) sp.set("page", String(params.page));
   const qs = sp.toString();
   return request<CandidatesEnvelope>(`/jobs/${id}/candidates${qs ? `?${qs}` : ""}`);
+};
+// Cross-job candidate directory (every candidate across all jobs).
+export const listAllCandidates = (params: { q?: string; min_fit?: number; page?: number }) => {
+  const sp = new URLSearchParams();
+  if (params.q) sp.set("q", params.q);
+  if (params.min_fit != null) sp.set("min_fit", String(params.min_fit));
+  if (params.page) sp.set("page", String(params.page));
+  const qs = sp.toString();
+  return request<CandidatesEnvelope>(`/candidates${qs ? `?${qs}` : ""}`);
 };
 export const patchCandidate = (id: string, patch: { bookmarked?: boolean }) =>
   request<{ ok: boolean }>(`/candidates/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
