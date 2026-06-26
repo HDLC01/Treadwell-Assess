@@ -100,28 +100,6 @@ export default function ReferencePage() {
           </p>
         </section>
 
-        {/* Trailblazer / Venturer caveat */}
-        <section className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-          <p className="text-sm font-bold text-amber-900">⚠ &ldquo;Trailblazer&rdquo; is a trap — read this first</p>
-          <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-amber-900/90">
-            <li>
-              • <span className="font-semibold">PI has no profile named &ldquo;Trailblazer.&rdquo;</span> The PI profile
-              described as a <em>&ldquo;trailblazing strategist&rdquo;</em> is the <span className="font-semibold">Venturer</span>,
-              which maps to our <span className="font-semibold">Pathfinder</span>.
-            </li>
-            <li>
-              • Our archetype named <span className="font-semibold">Trailblazer</span>{" "}
-              is a different pattern (high drive + some social pull, fast and informal) — closest to PI&apos;s{" "}
-              <span className="font-semibold">Maverick / Captain</span>.
-            </li>
-            <li>
-              • So don&apos;t match PI&apos;s &ldquo;trailblazer&rdquo; to our Trailblazer by name. PI trailblazer (Venturer)
-              → <span className="font-semibold">Pathfinder</span>; our Trailblazer → PI{" "}
-              <span className="font-semibold">Maverick / Captain</span>.
-            </li>
-          </ul>
-        </section>
-
         {/* Factor correspondence */}
         <section className="rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-4 py-3">

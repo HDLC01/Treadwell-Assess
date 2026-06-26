@@ -155,6 +155,17 @@ def update_job(job_id: str, body: JobUpdate):
     return {"ok": True}
 
 
+@router.delete("/jobs/{job_id}")
+def delete_job(job_id: str):
+    """Delete a job and everything under it (links, candidates, results all
+    cascade via ON DELETE CASCADE in the schema)."""
+    with connect() as conn:
+        res = conn.execute(text("delete from jobs where id = :j"), {"j": job_id})
+        if res.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Job not found")
+    return {"ok": True}
+
+
 @router.post("/jobs/{job_id}/link")
 def get_or_create_link(job_id: str):
     """The shareable assessment link token for a job (reuses the latest if present)."""
@@ -184,6 +195,7 @@ def list_candidates(
     job_id: str,
     q: Optional[str] = Query(None),
     min_fit: Optional[float] = Query(None, ge=0, le=5),
+    status: Optional[str] = Query(None),    # "completed" | "in_progress"
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
 ):
@@ -245,6 +257,10 @@ def list_candidates(
                  if needle in i["full_name"].lower() or needle in (i["email"] or "").lower()]
     if min_fit is not None:
         items = [i for i in items if (i["behavioral_fit"] or 0) >= min_fit]
+    if status == "completed":
+        items = [i for i in items if i["has_behavioral"]]
+    elif status == "in_progress":
+        items = [i for i in items if not i["has_behavioral"]]
 
     total = len(items)
     start = (page - 1) * page_size
@@ -258,6 +274,8 @@ def list_candidates(
 @router.get("/candidates")
 def list_all_candidates(
     q: Optional[str] = Query(None),
+    role: Optional[str] = Query(None),      # filter by job id
+    status: Optional[str] = Query(None),    # "completed" | "in_progress"
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
 ):
@@ -290,6 +308,12 @@ def list_all_candidates(
         "has_behavioral": r["assessed_at"] is not None,
     } for r in rows]
 
+    if role:
+        items = [i for i in items if i["job_id"] == role]
+    if status == "completed":
+        items = [i for i in items if i["has_behavioral"]]
+    elif status == "in_progress":
+        items = [i for i in items if not i["has_behavioral"]]
     if q:
         needle = q.lower().strip()
         items = [i for i in items

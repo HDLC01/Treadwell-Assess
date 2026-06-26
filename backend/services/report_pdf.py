@@ -167,6 +167,19 @@ def _factor_row(pdf: _Report, f: dict) -> None:
     pdf.ln(h + 3)
 
 
+# Closest Predictive Index reference profile for each of our archetypes (1:1),
+# mirrors the frontend referenceMap ARCHETYPE_TO_PI. Shown on the report so a
+# PI-fluent reviewer has a familiar anchor — nominal comparison only.
+ARCHETYPE_PI_EQUIVALENT = {
+    "trailblazer": "Maverick", "catalyst": "Captain", "dynamo": "Promoter",
+    "connector": "Persuader", "harmonizer": "Altruist", "diplomat": "Collaborator",
+    "anchor": "Operator", "steward": "Guardian", "craftsman": "Specialist",
+    "technician": "Craftsman", "examiner": "Analyzer", "sage": "Scholar",
+    "architect": "Controller", "visionary": "Strategist", "pathfinder": "Venturer",
+    "ranger": "Individualist", "allrounder": "Adapter",
+}
+
+
 def build_report_pdf(report: dict) -> bytes:
     cand = report["candidate"]
     job = report["job"]
@@ -209,6 +222,12 @@ def build_report_pdf(report: dict) -> bytes:
                 pdf.set_font("Helvetica", "I", 9.5)
                 pdf.set_text_color(*SKY)
                 pdf.multi_cell(0, 5, _s(prof["tagline"]), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pi = ARCHETYPE_PI_EQUIVALENT.get(prof.get("slug"))
+            if pi:
+                pdf.set_font("Helvetica", "", 8.5)
+                pdf.set_text_color(120, 128, 138)
+                pdf.multi_cell(0, 4.5, _s(f"Predictive Index equivalent: {pi}"),
+                               new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
         if narr.get("summary"):
             _section(pdf, "Summary")

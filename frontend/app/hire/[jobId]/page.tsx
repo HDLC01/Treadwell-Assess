@@ -459,6 +459,7 @@ function CandidatesTab({ jobId }: { jobId: string }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -467,6 +468,7 @@ function CandidatesTab({ jobId }: { jobId: string }) {
     // `finally`; refetches (search/page/bookmark) update the rows in place.
     return listCandidates(jobId, {
       q: q || undefined,
+      status: status || undefined,
       page,
     })
       .then((r) => {
@@ -475,7 +477,7 @@ function CandidatesTab({ jobId }: { jobId: string }) {
         setTotalPages(r.total_pages || 1);
       })
       .finally(() => setLoading(false));
-  }, [jobId, q, page]);
+  }, [jobId, q, status, page]);
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -488,6 +490,17 @@ function CandidatesTab({ jobId }: { jobId: string }) {
   return (
     <div className={card}>
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
+        <label className="sr-only" htmlFor="cand-status-filter">Status</label>
+        <select
+          id="cand-status-filter"
+          value={status}
+          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+        >
+          <option value="">All statuses</option>
+          <option value="completed">Completed</option>
+          <option value="in_progress">In progress</option>
+        </select>
         <div className="flex-1" />
         <div className="relative">
           <svg
@@ -531,11 +544,11 @@ function CandidatesTab({ jobId }: { jobId: string }) {
         </div>
       ) : rows.length === 0 ? (
         <div className="px-6 py-14 text-center">
-          {q ? (
+          {q || status ? (
             <>
               <p className="text-sm font-semibold text-slate-700">No matching candidates</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                Try a different search.
+                Try a different search or status.
               </p>
             </>
           ) : (

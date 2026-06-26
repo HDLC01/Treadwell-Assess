@@ -237,20 +237,25 @@ export const createJob = (name: string, folder: string) =>
 export const getJob = (id: string) => request<JobDetail>(`/jobs/${id}`);
 export const updateJob = (id: string, patch: Partial<{ name: string; folder: string; status: string; behavioral_target: BehavioralTarget; cognitive_target: number | null }>) =>
   request<{ ok: boolean }>(`/jobs/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+export const deleteJob = (id: string) =>
+  request<{ ok: boolean }>(`/jobs/${id}`, { method: "DELETE" });
 export const getOrCreateLink = (id: string) =>
   request<{ token: string }>(`/jobs/${id}/link`, { method: "POST" });
-export const listCandidates = (id: string, params: { q?: string; min_fit?: number; page?: number }) => {
+export const listCandidates = (id: string, params: { q?: string; min_fit?: number; status?: string; page?: number }) => {
   const sp = new URLSearchParams();
   if (params.q) sp.set("q", params.q);
   if (params.min_fit != null) sp.set("min_fit", String(params.min_fit));
+  if (params.status) sp.set("status", params.status);
   if (params.page) sp.set("page", String(params.page));
   const qs = sp.toString();
   return request<CandidatesEnvelope>(`/jobs/${id}/candidates${qs ? `?${qs}` : ""}`);
 };
 // Cross-job candidate directory (every candidate across all jobs).
-export const listAllCandidates = (params: { q?: string; page?: number }) => {
+export const listAllCandidates = (params: { q?: string; role?: string; status?: string; page?: number }) => {
   const sp = new URLSearchParams();
   if (params.q) sp.set("q", params.q);
+  if (params.role) sp.set("role", params.role);
+  if (params.status) sp.set("status", params.status);
   if (params.page) sp.set("page", String(params.page));
   const qs = sp.toString();
   return request<CandidatesEnvelope>(`/candidates${qs ? `?${qs}` : ""}`);

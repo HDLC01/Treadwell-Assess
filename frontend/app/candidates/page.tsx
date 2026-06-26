@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { listAllCandidates, type CandidateRow } from "../lib/api";
+import { listAllCandidates, listJobs, type CandidateRow, type JobSummary } from "../lib/api";
 import AppHeader from "../components/AppHeader";
 import { card, inputCls } from "../lib/ui";
 
@@ -16,13 +16,27 @@ export default function CandidatesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [q, setQ] = useState("");
+  const [role, setRole] = useState("");
+  const [status, setStatus] = useState("");
+  const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const router = useRouter();
 
+  useEffect(() => {
+    listJobs()
+      .then((r) => setJobs(r.jobs))
+      .catch(() => { /* role filter just stays empty */ });
+  }, []);
+
   const refresh = useCallback(
     () =>
-      listAllCandidates({ q: q || undefined, page })
+      listAllCandidates({
+        q: q || undefined,
+        role: role || undefined,
+        status: status || undefined,
+        page,
+      })
         .then((r) => {
           setRows(r.items);
           setTotal(r.total);
@@ -30,7 +44,7 @@ export default function CandidatesPage() {
         })
         .catch(() => setError("Could not load candidates — is the API running?"))
         .finally(() => setLoading(false)),
-    [q, page],
+    [q, role, status, page],
   );
   useEffect(() => {
     void refresh();
@@ -52,6 +66,29 @@ export default function CandidatesPage() {
 
         <div className={`overflow-hidden ${card}`}>
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
+            <label className="sr-only" htmlFor="role-filter">Role</label>
+            <select
+              id="role-filter"
+              value={role}
+              onChange={(e) => { setRole(e.target.value); setPage(1); }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+            >
+              <option value="">All roles</option>
+              {jobs.map((j) => (
+                <option key={j.id} value={j.id}>{j.name}</option>
+              ))}
+            </select>
+            <label className="sr-only" htmlFor="status-filter">Status</label>
+            <select
+              id="status-filter"
+              value={status}
+              onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+            >
+              <option value="">All statuses</option>
+              <option value="completed">Completed</option>
+              <option value="in_progress">In progress</option>
+            </select>
             <div className="relative ml-auto">
               <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="11" cy="11" r="7" />
@@ -81,12 +118,14 @@ export default function CandidatesPage() {
           ) : rows.length === 0 ? (
             <div className="px-6 py-12 text-center">
               <p className="text-sm font-semibold text-slate-700">
-                {q ? "No matching candidates" : "No candidates yet"}
+                {q || role || status ? "No matching candidates" : "No candidates yet"}
               </p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                {q ? "Try a different search." : "Open a job, copy its assessment link, and candidates will show up here as they finish."}
+                {q || role || status
+                  ? "Try clearing a filter or searching differently."
+                  : "Open a job, copy its assessment link, and candidates will show up here as they finish."}
               </p>
-              {!q && (
+              {!(q || role || status) && (
                 <Link href="/hire" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-sky-600 hover:text-sky-700">
                   Go to Jobs →
                 </Link>
