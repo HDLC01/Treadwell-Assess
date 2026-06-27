@@ -47,9 +47,12 @@ SYSTEM = (
 
 # Candidate names are free text the candidate typed, so they are an injection
 # vector once they enter the model's context. Collapse to a single line, strip
-# control chars, and cap length so a name can't forge a section header, break the
-# <data> fence, or smuggle instructions.
-_CTRL = re.compile(r"[\x00-\x1f\x7f]")
+# control + zero-width/bidi chars, drop angle brackets, and cap length so a name
+# can't forge a section header, break the <data> fence, or smuggle instructions.
+# (Names never legitimately contain angle brackets or zero-width chars, so we
+# remove them outright — this defeats the whole delimiter/tag-forgery class,
+# including spaced "< /data >" and invisible-character evasions.)
+_CTRL = re.compile("[\x00-\x1f\x7f\u200b-\u200f\u202a-\u202e\u2060\ufeff]")
 _FENCE = re.compile(r"</?\s*(data|question)\s*>|selected candidate", re.IGNORECASE)
 _TAGS = re.compile(r"</?\s*(data|question)\s*>", re.IGNORECASE)
 
@@ -58,6 +61,7 @@ def _clean(value, limit: int = 80) -> str:
     if not value:
         return ""
     s = _CTRL.sub(" ", str(value))
+    s = s.replace("<", " ").replace(">", " ")
     s = _FENCE.sub(" ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s[:limit]
