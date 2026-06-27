@@ -85,8 +85,8 @@ export default function AppHeader() {
         <div className="flex-1" />
 
         {authEnabled && user ? (
+          <>
           <div className="flex items-center gap-1.5">
-            <AssistantPanel />
             <NotificationBell />
             <div className="relative" ref={menuRef}>
             <button
@@ -126,6 +126,8 @@ export default function AppHeader() {
             )}
             </div>
           </div>
+          <AssistantPanel />
+          </>
         ) : null}
       </div>
 
