@@ -275,6 +275,9 @@ export interface AssessNotification {
 // Important admin notifications (no candidate results).
 export const listNotifications = () =>
   request<{ items: AssessNotification[] }>(`/notifications`);
+// Admin AI assistant — plain-language Q&A over the hiring data.
+export const askAssistant = (question: string) =>
+  request<{ answer: string }>(`/assistant`, { method: "POST", body: JSON.stringify({ question }) });
 export const patchCandidate = (id: string, patch: { bookmarked?: boolean }) =>
   request<{ ok: boolean }>(`/candidates/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 export const getCandidateReport = (id: string) =>

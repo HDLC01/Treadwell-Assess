@@ -1,5 +1,18 @@
 FROM python:3.12-slim
 
+# Node + the Claude Code CLI (powers the admin AI assistant via `claude -p`).
+# Auth is the Team-seat OAuth token (CLAUDE_CODE_OAUTH_TOKEN, from .env); the CLI
+# config persists on the /root/.claude volume mounted by docker-compose.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates gnupg \
+ && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
+ && npm install -g @anthropic-ai/claude-code \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV CLAUDE_CONFIG_DIR=/root/.claude
+
 WORKDIR /app
 
 COPY requirements.txt ./

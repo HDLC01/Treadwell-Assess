@@ -35,6 +35,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - claude_credentials:/root/.claude   # persist the Claude CLI config/creds for the assistant
     profiles: ["full"]   # `docker compose --profile full up` runs the whole stack
 
   web:
@@ -52,3 +54,4 @@ services:
 
 volumes:
   pgdata:
+  claude_credentials:

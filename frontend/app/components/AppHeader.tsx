@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../lib/auth";
 import NotificationBell from "./NotificationBell";
+import AssistantPanel from "./AssistantPanel";
 
 // One shared product nav for every employer page: brand + section links (with an
 // active state) on the left, and an account menu on the right. Candidate-facing
@@ -85,6 +86,7 @@ export default function AppHeader() {
 
         {authEnabled && user ? (
           <div className="flex items-center gap-1.5">
+            <AssistantPanel />
             <NotificationBell />
             <div className="relative" ref={menuRef}>
             <button
