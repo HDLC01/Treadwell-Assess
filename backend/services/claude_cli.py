@@ -39,13 +39,21 @@ def _ensure_config() -> None:
 
 
 def call_claude(user_prompt: str, system: str = "", *, timeout: int = 90) -> str:
-    """Return Claude's plain-text answer. Raises ClaudeCLIError on any failure."""
+    """Return Claude's plain-text answer. Raises ClaudeCLIError on any failure.
+
+    The system rules go through the CLI's own --append-system-prompt channel,
+    kept separate from the user content. This is a prompt-injection defense:
+    instructions embedded in untrusted data (e.g. a candidate's name) or in the
+    question arrive only on the user channel and cannot pose as system rules.
+    """
     _ensure_config()
-    full_prompt = f"{system}\n\n{user_prompt}" if system else user_prompt
+    cmd = ["claude", "-p", "--output-format", "json"]
+    if system:
+        cmd += ["--append-system-prompt", system]
     try:
         result = subprocess.run(
-            ["claude", "-p", "--output-format", "json"],
-            input=full_prompt,
+            cmd,
+            input=user_prompt,
             capture_output=True,
             text=True,
             encoding="utf-8",
