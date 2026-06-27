@@ -11,8 +11,9 @@ employer auth middleware (@wetreadwell.com) like the rest of /api/*.
 from __future__ import annotations
 
 import re
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -69,6 +70,34 @@ def _clean(value, limit: int = 80) -> str:
 
 class AskBody(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
+    conversation_id: Optional[str] = None
+
+
+PAGE_SIZE = 25            # house rule: lists paginate at 25
+HISTORY_TURNS = 10        # how many prior messages to feed back for multi-turn context
+
+
+def _current_email(request: Request) -> str:
+    """The signed-in admin's email (set by the auth middleware). Falls back to a
+    dev identity when auth is disabled locally so chats still group sensibly."""
+    return getattr(request.state, "user_email", None) or "dev@wetreadwell.com"
+
+
+def _history_block(conn, conversation_id: str) -> str:
+    """Prior turns of this conversation, oldest→newest, for multi-turn context.
+    Fenced as untrusted like everything else; the privacy rule still applies."""
+    rows = conn.execute(text(
+        "select role, content from assistant_messages where conversation_id = :c "
+        "order by created_at desc limit :n"
+    ), {"c": conversation_id, "n": HISTORY_TURNS}).mappings().all()
+    if not rows:
+        return ""
+    rows = list(reversed(rows))
+    lines = []
+    for r in rows:
+        who = "Admin" if r["role"] == "user" else "Assistant"
+        lines.append(f"{who}: {_TAGS.sub(' ', str(r['content']))[:1500]}")
+    return "\n".join(lines)
 
 
 def _format_candidate(rep: dict) -> str:
@@ -152,21 +181,101 @@ def _build_context(conn, question: str) -> str:
     return "\n".join(lines)
 
 
+def _owned_conversation(conn, conversation_id: str, email: str):
+    """Return the conversation row iff it exists AND belongs to this admin."""
+    return conn.execute(text(
+        "select id, title from assistant_conversations where id = :c and user_email = :e"
+    ), {"c": conversation_id, "e": email}).mappings().first()
+
+
 @router.post("/assistant")
-def ask_assistant(body: AskBody):
+def ask_assistant(body: AskBody, request: Request):
+    email = _current_email(request)
     with connect() as conn:
+        # Resolve / create the conversation (scoped to this admin).
+        convo_id: Optional[str] = None
+        title = "New chat"
+        if body.conversation_id:
+            row = _owned_conversation(conn, body.conversation_id, email)
+            if not row:
+                raise HTTPException(status_code=404, detail="Conversation not found.")
+            convo_id, title = str(row["id"]), row["title"]
+        history = _history_block(conn, convo_id) if convo_id else ""
+
         context = _build_context(conn, body.question)
-    # Strip control chars + any <data>/<question> tags from the question so it
-    # can't close the fence or inject a fake section. The rules ride the system
-    # channel (see claude_cli.call_claude); only fenced, untrusted content here.
-    safe_question = _TAGS.sub(" ", _CTRL.sub(" ", body.question)).strip()
-    user_prompt = (
-        "<data>\n" + context + "\n</data>\n\n"
-        "<question>\n" + safe_question + "\n</question>\n\n"
-        "Answer the question using only the data above."
-    )
-    try:
-        answer = claude_cli.call_claude(user_prompt, SYSTEM, timeout=90)
-    except claude_cli.ClaudeCLIError as exc:
-        raise HTTPException(status_code=503, detail=f"The assistant is unavailable right now ({str(exc)[:160]}).")
-    return {"answer": answer or "I couldn't generate a response — try rephrasing."}
+        # Strip control chars + any <data>/<question> tags from the question so it
+        # can't close the fence or inject a fake section. Rules ride the system
+        # channel (claude_cli.call_claude); only fenced, untrusted content here.
+        safe_question = _TAGS.sub(" ", _CTRL.sub(" ", body.question)).strip()
+        parts = ["<data>\n" + context + "\n</data>\n"]
+        if history:
+            parts.append("<conversation_so_far>\n" + history + "\n</conversation_so_far>\n")
+        parts.append("<question>\n" + safe_question + "\n</question>\n")
+        parts.append("Answer the question using only the data above.")
+        user_prompt = "\n".join(parts)
+
+        try:
+            answer = claude_cli.call_claude(user_prompt, SYSTEM, timeout=90)
+        except claude_cli.ClaudeCLIError as exc:
+            raise HTTPException(status_code=503, detail=f"The assistant is unavailable right now ({str(exc)[:160]}).")
+        answer = answer or "I couldn't generate a response — try rephrasing."
+
+        # Persist: create the conversation on first turn, then store both messages.
+        if not convo_id:
+            title = (safe_question[:60] or "New chat").strip()
+            convo_id = str(conn.execute(text(
+                "insert into assistant_conversations (user_email, title) values (:e, :t) returning id"
+            ), {"e": email, "t": title}).scalar())
+        conn.execute(text(
+            "insert into assistant_messages (conversation_id, role, content) values (:c, 'user', :m)"
+        ), {"c": convo_id, "m": body.question})
+        conn.execute(text(
+            "insert into assistant_messages (conversation_id, role, content) values (:c, 'assistant', :m)"
+        ), {"c": convo_id, "m": answer})
+        conn.execute(text(
+            "update assistant_conversations set updated_at = now() where id = :c"
+        ), {"c": convo_id})
+
+    return {"answer": answer, "conversation_id": convo_id, "title": title}
+
+
+@router.get("/assistant/conversations")
+def list_conversations(request: Request, page: int = 1):
+    email = _current_email(request)
+    page = max(1, page)
+    with connect() as conn:
+        total = conn.execute(text(
+            "select count(*) from assistant_conversations where user_email = :e"
+        ), {"e": email}).scalar() or 0
+        rows = conn.execute(text(
+            "select id, title, updated_at from assistant_conversations "
+            "where user_email = :e order by updated_at desc limit :lim offset :off"
+        ), {"e": email, "lim": PAGE_SIZE, "off": (page - 1) * PAGE_SIZE}).mappings().all()
+    items = [{"id": str(r["id"]), "title": r["title"], "updated_at": str(r["updated_at"])} for r in rows]
+    return {"items": items, "page": page, "page_size": PAGE_SIZE, "total": total,
+            "total_pages": max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)}
+
+
+@router.get("/assistant/conversations/{conversation_id}")
+def get_conversation(conversation_id: str, request: Request):
+    email = _current_email(request)
+    with connect() as conn:
+        row = _owned_conversation(conn, conversation_id, email)
+        if not row:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        msgs = conn.execute(text(
+            "select role, content from assistant_messages where conversation_id = :c order by created_at"
+        ), {"c": conversation_id}).mappings().all()
+    return {"id": str(row["id"]), "title": row["title"],
+            "messages": [{"role": m["role"], "text": m["content"]} for m in msgs]}
+
+
+@router.delete("/assistant/conversations/{conversation_id}")
+def delete_conversation(conversation_id: str, request: Request):
+    email = _current_email(request)
+    with connect() as conn:
+        row = _owned_conversation(conn, conversation_id, email)
+        if not row:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        conn.execute(text("delete from assistant_conversations where id = :c"), {"c": conversation_id})  # cascade
+    return {"ok": True}

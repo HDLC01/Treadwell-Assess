@@ -276,8 +276,33 @@ export interface AssessNotification {
 export const listNotifications = () =>
   request<{ items: AssessNotification[] }>(`/notifications`);
 // Admin AI assistant — plain-language Q&A over the hiring data.
-export const askAssistant = (question: string) =>
-  request<{ answer: string }>(`/assistant`, { method: "POST", body: JSON.stringify({ question }) });
+export interface AssistantConversation {
+  id: string;
+  title: string;
+  updated_at: string;
+}
+export interface AssistantConversationsEnvelope {
+  items: AssistantConversation[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+export interface AssistantMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+export const askAssistant = (question: string, conversationId?: string | null) =>
+  request<{ answer: string; conversation_id: string; title: string }>(`/assistant`, {
+    method: "POST",
+    body: JSON.stringify({ question, conversation_id: conversationId ?? null }),
+  });
+export const listAssistantConversations = (page = 1) =>
+  request<AssistantConversationsEnvelope>(`/assistant/conversations?page=${page}`);
+export const getAssistantConversation = (id: string) =>
+  request<{ id: string; title: string; messages: AssistantMessage[] }>(`/assistant/conversations/${id}`);
+export const deleteAssistantConversation = (id: string) =>
+  request<{ ok: boolean }>(`/assistant/conversations/${id}`, { method: "DELETE" });
 export const patchCandidate = (id: string, patch: { bookmarked?: boolean }) =>
   request<{ ok: boolean }>(`/candidates/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 export const getCandidateReport = (id: string) =>
