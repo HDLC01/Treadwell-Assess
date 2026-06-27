@@ -87,7 +87,7 @@ def _history_block(conn, conversation_id: str) -> str:
     """Prior turns of this conversation, oldest→newest, for multi-turn context.
     Fenced as untrusted like everything else; the privacy rule still applies."""
     rows = conn.execute(text(
-        "select role, content from assistant_messages where conversation_id = :c "
+        "select role, content, has_candidate_results from assistant_messages where conversation_id = :c "
         "order by created_at desc limit :n"
     ), {"c": conversation_id, "n": HISTORY_TURNS}).mappings().all()
     if not rows:
@@ -96,7 +96,16 @@ def _history_block(conn, conversation_id: str) -> str:
     lines = []
     for r in rows:
         who = "Admin" if r["role"] == "user" else "Assistant"
-        lines.append(f"{who}: {_TAGS.sub(' ', str(r['content']))[:1500]}")
+        # A turn that surfaced a single candidate's private results is REDACTED
+        # in the model's view of history, so those results never sit alongside a
+        # different candidate's in a later turn (the one-candidate-per-call
+        # invariant holds across turns, not just within one). The admin still
+        # sees the full answer in their saved history — this only affects what
+        # the model is re-fed.
+        if r["role"] == "assistant" and r["has_candidate_results"]:
+            lines.append(f"{who}: [a single candidate's private results were shown here; omitted from this view]")
+        else:
+            lines.append(f"{who}: {_TAGS.sub(' ', str(r['content']))[:1500]}")
     return "\n".join(lines)
 
 
@@ -203,6 +212,9 @@ def ask_assistant(body: AskBody, request: Request):
         history = _history_block(conn, convo_id) if convo_id else ""
 
         context = _build_context(conn, body.question)
+        # True when this turn surfaced exactly one candidate's full results — used
+        # to redact this answer from the conversation history fed to later turns.
+        had_results = "SELECTED CANDIDATE (full results" in context
         # Strip control chars + any <data>/<question> tags from the question so it
         # can't close the fence or inject a fake section. Rules ride the system
         # channel (claude_cli.call_claude); only fenced, untrusted content here.
@@ -230,8 +242,9 @@ def ask_assistant(body: AskBody, request: Request):
             "insert into assistant_messages (conversation_id, role, content) values (:c, 'user', :m)"
         ), {"c": convo_id, "m": body.question})
         conn.execute(text(
-            "insert into assistant_messages (conversation_id, role, content) values (:c, 'assistant', :m)"
-        ), {"c": convo_id, "m": answer})
+            "insert into assistant_messages (conversation_id, role, content, has_candidate_results) "
+            "values (:c, 'assistant', :m, :hr)"
+        ), {"c": convo_id, "m": answer, "hr": had_results})
         conn.execute(text(
             "update assistant_conversations set updated_at = now() where id = :c"
         ), {"c": convo_id})
