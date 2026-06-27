@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { askAssistant } from "../lib/api";
+import { useDraggable, useResizable, type Corner } from "../lib/useFloating";
 
 type Msg = { role: "user" | "assistant" | "error"; text: string };
 
@@ -10,6 +11,10 @@ const SUGGESTIONS = [
   "Which jobs still need a target?",
   "How many candidates completed this week?",
 ];
+
+const LAUNCHER_W = 156;
+const LAUNCHER_H = 52;
+const GAP = 10;
 
 function Sparkle({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -25,12 +30,30 @@ export default function AssistantPanel() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [vp, setVp] = useState({ w: 1200, h: 800 });
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  // gentle slide-up + fade on open; Escape closes. All setState happens in the
-  // rAF callback or the cleanup (never in the effect body) to satisfy the
-  // react-hooks/set-state-in-effect rule.
+  const { pos, btnRef, onMouseDown, onTouchStart, wasDrag } = useDraggable(
+    "assess_assistant_pos",
+    () => ({ x: (typeof window !== "undefined" ? window.innerWidth : 1200) - LAUNCHER_W - 20, y: (typeof window !== "undefined" ? window.innerHeight : 800) - LAUNCHER_H - 20 }),
+  );
+  const { size, startResize } = useResizable("assess_assistant_size", { w: 384, h: 520 });
+
+  useEffect(() => {
+    const f = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    const id = requestAnimationFrame(f);
+    window.addEventListener("resize", f);
+    window.addEventListener("orientationchange", f);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener("resize", f);
+      window.removeEventListener("orientationchange", f);
+    };
+  }, []);
+
+  // gentle slide-up + fade on open; Escape closes. setState only in rAF/cleanup
+  // (never the effect body) to satisfy react-hooks/set-state-in-effect.
   useEffect(() => {
     if (!open) return;
     const id = requestAnimationFrame(() => setEnter(true));
@@ -65,23 +88,46 @@ export default function AssistantPanel() {
     }
   };
 
+  const positioned = pos.x >= 0;
+
+  // Panel anchors to the launcher and flips by quadrant so it always lands
+  // on-screen; clamped to the viewport regardless of where the launcher sits.
+  const launcherRight = pos.x > vp.w / 2;
+  const launcherBottom = pos.y > vp.h / 2;
+  const panelW = Math.min(size.w, vp.w - 24);
+  const panelH = Math.min(size.h, vp.h - 24);
+  let left = launcherRight ? pos.x + LAUNCHER_W - panelW : pos.x;
+  left = Math.max(12, Math.min(vp.w - panelW - 12, left));
+  let top = launcherBottom ? pos.y - panelH - GAP : pos.y + LAUNCHER_H + GAP;
+  top = Math.max(12, Math.min(vp.h - panelH - 12, top));
+  const corner: Corner = launcherRight ? (launcherBottom ? "nw" : "sw") : (launcherBottom ? "ne" : "se");
+  const cornerPos = { nw: "top-0 left-0", ne: "top-0 right-0", sw: "bottom-0 left-0", se: "bottom-0 right-0" }[corner];
+  const cornerCursor = corner === "nw" || corner === "se" ? "cursor-nwse-resize" : "cursor-nesw-resize";
+
+  const noDragFromButton = (e: React.MouseEvent | React.TouchEvent) =>
+    (e.target as HTMLElement).closest("button, textarea, a, input");
+
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3 print:hidden">
+    <>
       {open && (
         <div
           role="dialog"
           aria-label="Assistant"
-          className={`flex w-[min(24rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition duration-200 ease-out ${
+          style={{ position: "fixed", left, top, width: panelW, height: panelH, zIndex: 50 }}
+          className={`flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-[opacity,transform] duration-200 ease-out ${
             enter ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
           }`}
-          style={{ height: "min(33rem, calc(100dvh - 7rem))" }}
         >
-          {/* header */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 px-3 py-2.5">
+          {/* header — drag handle (clicks on its buttons don't drag) */}
+          <div
+            onMouseDown={(e) => { if (!noDragFromButton(e)) onMouseDown(e); }}
+            onTouchStart={(e) => { if (!noDragFromButton(e)) onTouchStart(e); }}
+            className="flex shrink-0 cursor-grab items-center gap-2 border-b border-slate-200 px-3 py-2.5 active:cursor-grabbing"
+          >
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-sky-400 to-sky-600 text-white">
               <Sparkle className="w-4 h-4" />
             </span>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 select-none">
               <p className="text-sm font-bold leading-tight text-slate-900">Assistant</p>
               <span className="flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -196,15 +242,30 @@ export default function AssistantPanel() {
               Candidate results stay private. Open a report to see them.
             </p>
           </div>
+
+          {/* resize grip — far corner from the launcher */}
+          <div
+            onMouseDown={startResize(corner)}
+            title="Drag to resize"
+            className={`absolute ${cornerPos} ${cornerCursor} z-10 grid h-5 w-5 place-items-center text-slate-300 hover:text-sky-500`}
+          >
+            <svg className="h-3 w-3 pointer-events-none" viewBox="0 0 16 16" fill="none" style={{ transform: corner === "ne" ? "scaleX(-1)" : corner === "sw" ? "scaleY(-1)" : corner === "se" ? "rotate(180deg)" : undefined }}>
+              <path d="M1 14 L14 1 M5 14 L14 5 M9 14 L14 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </div>
         </div>
       )}
 
-      {/* floating pill launcher */}
+      {/* draggable floating launcher */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        ref={btnRef}
+        onMouseDown={onMouseDown}
+        onTouchStart={onTouchStart}
+        onClick={() => { if (!wasDrag()) setOpen((v) => !v); }}
         aria-label={open ? "Minimize assistant" : "Ask the assistant"}
         aria-expanded={open}
-        className="flex h-[52px] cursor-pointer select-none items-center gap-2 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 px-4 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-sky-600/30 transition hover:from-sky-600 hover:to-sky-700 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 sm:px-5"
+        style={{ position: "fixed", left: 0, top: 0, zIndex: 50, opacity: positioned ? 1 : 0, touchAction: "none" }}
+        className="flex h-[52px] cursor-grab select-none items-center gap-2 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 px-4 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-sky-600/30 transition-colors will-change-transform hover:from-sky-600 hover:to-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 active:cursor-grabbing sm:px-5 print:hidden"
       >
         {open ? (
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -215,6 +276,6 @@ export default function AssistantPanel() {
         )}
         <span className="hidden sm:inline">{open ? "Close" : "Assistant"}</span>
       </button>
-    </div>
+    </>
   );
 }
