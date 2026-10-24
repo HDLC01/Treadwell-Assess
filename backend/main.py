@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Treadwell Assess", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Assess", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

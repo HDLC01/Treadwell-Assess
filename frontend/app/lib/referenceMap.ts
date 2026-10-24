@@ -1,5 +1,5 @@
 // Content for the /reference cheat sheet: a translation aid between Predictive
-// Index (PI) Reference Profiles and Treadwell Assess's 17 original archetypes.
+// Index (PI) Reference Profiles and Assess's 17 original archetypes.
 //
 // Mappings are by BEHAVIORAL-FACTOR PATTERN (nearest archetype in 4-factor space),
 // not an equivalence. PI profile NAMES are used nominatively for comparison only;
@@ -161,7 +161,7 @@ export const FACTOR_MAP: FactorRow[] = [
   { pi: "Formality", tw: "Conscientiousness (D)", spectrum: "precise ↔ flexible" },
 ];
 
-// ─── Table A: PI profile → nearest Treadwell archetype (all 17) ───────────────
+// ─── Table A: PI profile → nearest Assess archetype (all 17) ──────────────────
 export interface PiProfile {
   name: string;
   group: PiGroup;
@@ -317,7 +317,7 @@ export const PI_PROFILES: PiProfile[] = [
   },
 ];
 
-// ─── Table B: Treadwell archetype → matching PI profile (all 17, one-to-one) ──
+// ─── Table B: Assess archetype → matching PI profile (all 17, one-to-one) ─────
 // Authored (not auto-inverted) because the two directions aren't strict inverses.
 export interface ArchetypeToPi {
   slug: string;

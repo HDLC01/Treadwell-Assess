@@ -16,6 +16,7 @@ import {
 import FactorBars from "../components/FactorBars";
 import RadarChart from "../components/RadarChart";
 import ArchetypeIcon from "../components/ArchetypeIcon";
+import ChipInput from "../components/ChipInput";
 import { btnPrimary, btnSecondary, inputCls } from "../lib/ui";
 
 // Emerald sibling of the shared primary button — used for the "go" moments
@@ -43,8 +44,13 @@ export default function AssessmentFlow() {
   const [step, setStep] = useState<Step>("loading");
   const [error, setError] = useState("");
   const [meta, setMeta] = useState<AssessmentMeta | null>(null);
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
+  const [software, setSoftware] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const [candidateId, setCandidateId] = useState("");
   const [picks1, setPicks1] = useState<Set<number>>(new Set());
   const [picks2, setPicks2] = useState<Set<number>>(new Set());
@@ -82,15 +88,19 @@ export default function AssessmentFlow() {
   }, [token]);
 
   const begin = async () => {
-    if (!name.trim()) return;
+    const fullName = [firstName, middleName, lastName].map((s) => s.trim()).filter(Boolean).join(" ");
+    if (!firstName.trim() || !lastName.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || submitting) return;
+    setSubmitting(true);
     try {
-      const r = await startAssessment(token, name.trim(), email.trim());
+      const r = await startAssessment(token, fullName, email.trim(), skills, software);
       setCandidateId(r.candidate_id);
       setStep("list1");
       window.scrollTo(0, 0);
     } catch (e: unknown) {
       setError(e instanceof ApiError ? e.message : "Could not start the assessment.");
       setStep("error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -236,21 +246,47 @@ export default function AssessmentFlow() {
         </ul>
         <div className="mt-6 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="cand-name" className="text-sm font-semibold text-slate-700">
-              Full name
+            <label htmlFor="cand-first" className="text-sm font-semibold text-slate-700">
+              First name <span className="font-normal text-rose-500">*</span>
             </label>
             <input
-              id="cand-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
+              id="cand-first"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              autoComplete="given-name"
               className={`${inputCls} w-full`}
-              placeholder="Your name"
+              placeholder="First name"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="cand-middle" className="text-sm font-semibold text-slate-700">
+              Middle name <span className="font-normal text-slate-400">(optional)</span>
+            </label>
+            <input
+              id="cand-middle"
+              value={middleName}
+              onChange={(e) => setMiddleName(e.target.value)}
+              autoComplete="additional-name"
+              className={`${inputCls} w-full`}
+              placeholder="Middle name"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="cand-last" className="text-sm font-semibold text-slate-700">
+              Last name <span className="font-normal text-rose-500">*</span>
+            </label>
+            <input
+              id="cand-last"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              autoComplete="family-name"
+              className={`${inputCls} w-full`}
+              placeholder="Last name"
             />
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="cand-email" className="text-sm font-semibold text-slate-700">
-              Email <span className="font-normal text-slate-400">(optional)</span>
+              Email <span className="font-normal text-rose-500">*</span>
             </label>
             <input
               id="cand-email"
@@ -264,8 +300,28 @@ export default function AssessmentFlow() {
             />
             <p className="text-xs text-slate-400">We&apos;ll only use this to follow up about your application.</p>
           </div>
-          <button onClick={begin} disabled={!name.trim()} className={`${btnPrimary} mt-1 w-full py-3 text-sm`}>
-            Start the assessment
+          <div className="flex flex-col gap-1.5">
+            <ChipInput
+              id="cand-skills"
+              label="Skills (optional)"
+              values={skills}
+              onChange={setSkills}
+              placeholder="e.g. Project management"
+            />
+            <p className="text-xs text-slate-400">Type a skill and press Enter.</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <ChipInput
+              id="cand-software"
+              label="Software (optional)"
+              values={software}
+              onChange={setSoftware}
+              placeholder="e.g. QuickBooks"
+            />
+            <p className="text-xs text-slate-400">Type a tool and press Enter.</p>
+          </div>
+          <button onClick={begin} disabled={!firstName.trim() || !lastName.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || submitting} className={`${btnPrimary} mt-1 w-full py-3 text-sm`}>
+            {submitting ? "Starting…" : "Start the assessment"}
           </button>
         </div>
         <Footnote />
@@ -282,7 +338,7 @@ export default function AssessmentFlow() {
     const remainingToPick = Math.max(0, meta.min_words - picks.size);
     return (
       <Shell wide>
-        <JourneyProgress current={isFirst ? 1 : 2} />
+        <JourneyProgress current={1} />
         <div className="mt-4 flex items-baseline justify-between gap-3">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-sky-600">
             Word checklist · {isFirst ? "1 of 2" : "2 of 2"}
@@ -367,7 +423,7 @@ export default function AssessmentFlow() {
     const mins = Math.round((cogTest?.time_limit_sec ?? 600) / 60);
     return (
       <Shell>
-        <JourneyProgress current={3} />
+        <JourneyProgress current={2} />
         <p className="mt-4 text-xs font-bold uppercase tracking-[0.25em] text-sky-600">Cognitive section</p>
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">A few quick problems</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
@@ -623,7 +679,7 @@ export default function AssessmentFlow() {
         </span>
         <p className="mt-3 text-xs font-bold uppercase tracking-[0.25em] text-emerald-600">Assessment complete</p>
         <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-slate-900">
-          Thanks, {name.split(" ")[0]}!
+          Thanks, {firstName}!
         </h1>
         <p className="mt-2 max-w-md text-sm text-slate-500">
           Your results have been shared with the hiring team. Here&apos;s a snapshot of your behavioral profile.
@@ -678,7 +734,7 @@ function Shell({ children, wide = false }: { children: React.ReactNode; wide?: b
               <circle cx="12" cy="12" r="3.1" fill="#fff" stroke="none" />
             </svg>
           </span>
-          <span className="text-sm font-extrabold tracking-tight text-slate-900">Treadwell Assess</span>
+          <span className="text-sm font-extrabold tracking-tight text-slate-900">Assess</span>
         </div>
         <main className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           {children}
@@ -690,11 +746,7 @@ function Shell({ children, wide = false }: { children: React.ReactNode; wide?: b
 }
 
 function Footnote() {
-  return (
-    <p className="mt-8 text-center text-[10px] text-slate-400">
-      Independent assessment — not affiliated with The Predictive Index.
-    </p>
-  );
+  return null;
 }
 
 // A calm step indicator across the candidate journey: 1 Checklists · 2 Cognitive

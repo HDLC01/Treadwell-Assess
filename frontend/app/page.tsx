@@ -10,7 +10,7 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <span className="h-4 w-4 rounded bg-sky-500" />
           <span className="text-sm font-bold uppercase tracking-[0.3em] text-slate-400">
-            Treadwell Assess
+            Assess
           </span>
         </div>
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Treadwell Assess",
+  title: "Assess",
   description:
     "Behavioral and cognitive hiring assessments. Independent assessment — not affiliated with The Predictive Index.",
 };

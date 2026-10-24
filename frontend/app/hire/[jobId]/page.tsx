@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   DISC_LETTER,
   FACTORS,
+  deleteCandidate,
   getJob,
   getOrCreateLink,
   listCandidates,
@@ -18,6 +19,7 @@ import {
 } from "../../lib/api";
 import Stars from "../../components/Stars";
 import AppHeader from "../../components/AppHeader";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import { btnPrimary, btnSecondary, card, inputCls } from "../../lib/ui";
 
 const FACTOR_ENDS: Record<Factor, [string, string]> = {
@@ -461,6 +463,11 @@ function CandidatesTab({ jobId }: { jobId: string }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<CandidateRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [deleting, setDeleting] = useState<CandidateRow | null>(null);
+  const [busy, setBusy] = useState(false);
   const router = useRouter();
 
   const refresh = useCallback(() => {
@@ -485,6 +492,37 @@ function CandidatesTab({ jobId }: { jobId: string }) {
   const toggleBookmark = async (c: CandidateRow) => {
     await patchCandidate(c.id, { bookmarked: !c.bookmarked });
     refresh();
+  };
+
+  const startEdit = (c: CandidateRow) => {
+    setEditing(c);
+    setEditName(c.full_name);
+    setEditEmail(c.email ?? "");
+  };
+  const saveEdit = async () => {
+    if (!editing || !editName.trim()) return;
+    setBusy(true);
+    try {
+      await patchCandidate(editing.id, {
+        full_name: editName.trim(),
+        email: editEmail.trim() || null,
+      });
+      setEditing(null);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await deleteCandidate(deleting.id);
+      setDeleting(null);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -568,7 +606,7 @@ function CandidatesTab({ jobId }: { jobId: string }) {
                 <th className="px-4 py-2.5 font-semibold">Candidate</th>
                 <th className="px-4 py-2.5 font-semibold">Status</th>
                 <th className="px-4 py-2.5 font-semibold">Assessed</th>
-                <th className="px-4 py-2.5 text-right font-semibold"><span className="sr-only">Bookmark</span></th>
+                <th className="px-4 py-2.5 text-right font-semibold"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -602,20 +640,45 @@ function CandidatesTab({ jobId }: { jobId: string }) {
                   <td className="px-4 py-3 text-xs tabular-nums text-slate-500">
                     {c.assessed_at ? c.assessed_at.slice(0, 10) : <span className="text-slate-400">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleBookmark(c); }}
-                      aria-pressed={c.bookmarked}
-                      aria-label={c.bookmarked ? "Remove bookmark" : "Bookmark candidate"}
-                      title={c.bookmarked ? "Remove bookmark" : "Bookmark"}
-                      className={`grid h-9 w-9 place-items-center rounded-md text-lg leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
-                        c.bookmarked
-                          ? "text-amber-500 hover:text-amber-600"
-                          : "text-slate-300 hover:text-slate-500"
-                      }`}
-                    >
-                      {c.bookmarked ? "★" : "☆"}
-                    </button>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleBookmark(c); }}
+                        aria-pressed={c.bookmarked}
+                        aria-label={c.bookmarked ? "Remove bookmark" : "Bookmark candidate"}
+                        title={c.bookmarked ? "Remove bookmark" : "Bookmark"}
+                        className={`grid h-9 w-9 place-items-center rounded-md text-lg leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+                          c.bookmarked
+                            ? "text-amber-500 hover:text-amber-600"
+                            : "text-slate-300 hover:text-slate-500"
+                        }`}
+                      >
+                        {c.bookmarked ? "★" : "☆"}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); startEdit(c); }}
+                        aria-label={`Edit ${c.full_name}`}
+                        title="Edit"
+                        className="grid h-9 w-9 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleting(c); }}
+                        aria-label={`Delete ${c.full_name}`}
+                        title="Delete"
+                        className="grid h-9 w-9 place-items-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -651,6 +714,59 @@ function CandidatesTab({ jobId }: { jobId: string }) {
           </button>
         </div>
       </div>
+
+      {editing && (
+        <ConfirmDialog
+          title="Edit candidate"
+          confirmLabel="Save changes"
+          busyLabel="Saving…"
+          busy={busy}
+          confirmDisabled={!editName.trim()}
+          onConfirm={saveEdit}
+          onCancel={() => setEditing(null)}
+        >
+          <div className="flex flex-col gap-3">
+            <label className="text-xs font-semibold text-slate-600">
+              Name
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className={`mt-1 block w-full ${inputCls}`}
+                placeholder="Full name"
+                autoFocus
+              />
+            </label>
+            <label className="text-xs font-semibold text-slate-600">
+              Email <span className="font-normal text-slate-400">(optional)</span>
+              <input
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                type="email"
+                className={`mt-1 block w-full ${inputCls}`}
+                placeholder="name@example.com"
+              />
+            </label>
+          </div>
+        </ConfirmDialog>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete this candidate?"
+          destructive
+          confirmLabel="Delete candidate"
+          busyLabel="Deleting…"
+          busy={busy}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleting(null)}
+          message={
+            <>
+              <span className="font-semibold">{deleting.full_name}</span> and all of their
+              assessment results will be permanently removed. This can&apos;t be undone.
+            </>
+          }
+        />
+      )}
     </div>
   );
 }

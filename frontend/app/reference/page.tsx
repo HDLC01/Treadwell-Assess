@@ -12,7 +12,7 @@ import {
 } from "../lib/referenceMap";
 
 // /reference — a cheat sheet that translates Predictive Index Reference Profiles
-// into Treadwell Assess's 17 original archetypes (and back). Mappings are by
+// into Assess's 17 original archetypes (and back). Mappings are by
 // behavioral-factor pattern; it's a translation aid, not an equivalence.
 
 const GROUP_BADGE: Record<PiGroup, string> = {
@@ -92,8 +92,8 @@ export default function ReferencePage() {
             Coming from Predictive Index? Here&apos;s the map.
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-            Treadwell Assess uses its own 17 archetypes. If your team thinks in PI Reference
-            Profiles, this page shows the matching Treadwell archetype for each PI profile — and
+            Assess uses its own 17 archetypes. If your team thinks in PI Reference
+            Profiles, this page shows the matching archetype for each PI profile — and
             the reverse, one-to-one. Matches are based on the underlying behavioral-factor pattern, so treat
             this as a <span className="font-semibold text-slate-800">translation aid, not an exact
             equivalence</span>.
@@ -113,7 +113,7 @@ export default function ReferencePage() {
               <thead>
                 <tr className="border-b border-slate-100">
                   <th className={TH}>PI factor</th>
-                  <th className={TH}>Treadwell Assess factor</th>
+                  <th className={TH}>Assess factor</th>
                   <th className={TH}>Spectrum (high ↔ low)</th>
                 </tr>
               </thead>
@@ -130,7 +130,7 @@ export default function ReferencePage() {
           </div>
         </section>
 
-        {/* Table A — PI → Treadwell */}
+        {/* Table A — PI → Archetype */}
         <section className="rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-4 py-3">
             <h2 className="text-sm font-bold text-slate-800">PI profile → our archetype (all 17)</h2>
@@ -147,7 +147,7 @@ export default function ReferencePage() {
                 <tr className="border-b border-slate-100">
                   <th className={TH}>PI profile</th>
                   <th className={TH}>Pattern</th>
-                  <th className={TH}>→ Treadwell</th>
+                  <th className={TH}>→ Archetype</th>
                   <th className={TH}>Notes</th>
                 </tr>
               </thead>
@@ -181,19 +181,19 @@ export default function ReferencePage() {
           </div>
         </section>
 
-        {/* Table B — Treadwell → PI */}
+        {/* Table B — Archetype → PI */}
         <section className="rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-4 py-3">
             <h2 className="text-sm font-bold text-slate-800">Our 17 archetypes → matching PI profile</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              The reverse lookup: see a Treadwell archetype on a report, recall the one PI label it maps to.
+              The reverse lookup: see an archetype on a report, recall the one PI label it maps to.
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className={TH}>Treadwell archetype</th>
+                  <th className={TH}>Archetype</th>
                   <th className={TH}>Factor shape</th>
                   <th className={TH}>≈ PI profile(s)</th>
                   <th className={TH}>Notes</th>
@@ -225,7 +225,7 @@ export default function ReferencePage() {
         {/* Trademark footer */}
         <p className="border-t border-slate-200 pt-4 text-xs leading-relaxed text-slate-400">
           Predictive Index® and its Reference Profile names are trademarks of The Predictive Index,
-          used here for comparison only. Treadwell Assess&apos;s assessment, scoring, and archetypes
+          used here for comparison only. Assess&apos;s assessment, scoring, and archetypes
           are original content and are not affiliated with or derived from Predictive Index.
         </p>
       </main>

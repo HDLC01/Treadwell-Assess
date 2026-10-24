@@ -2,11 +2,14 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ApiError,
+  deleteCandidate,
   emailReport,
   fetchReportPdf,
   getCandidateReport,
+  patchCandidate,
   type CandidateReport,
 } from "../../../../lib/api";
 import Stars from "../../../../components/Stars";
@@ -15,6 +18,7 @@ import RadarChart from "../../../../components/RadarChart";
 import CognitiveGauge from "../../../../components/CognitiveGauge";
 import ArchetypeIcon from "../../../../components/ArchetypeIcon";
 import AppHeader from "../../../../components/AppHeader";
+import ConfirmDialog from "../../../../components/ConfirmDialog";
 import { btnPrimary, btnSecondary, inputCls } from "../../../../lib/ui";
 
 const FIT_BADGE: Record<string, string> = {
@@ -60,6 +64,7 @@ export default function CandidatePage({
   params: Promise<{ jobId: string; candidateId: string }>;
 }) {
   const { jobId, candidateId } = use(params);
+  const router = useRouter();
   const [report, setReport] = useState<CandidateReport | null>(null);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
@@ -67,6 +72,11 @@ export default function CandidatePage({
   const [emailTo, setEmailTo] = useState("");
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     getCandidateReport(candidateId)
@@ -110,6 +120,46 @@ export default function CandidatePage({
       setNote({ ok: false, text: e instanceof ApiError ? e.message : "Could not send the email." });
     } finally {
       setSending(false);
+    }
+  };
+
+
+  const openEdit = () => {
+    if (!report) return;
+    setEditName(report.candidate.full_name);
+    setEditEmail(report.candidate.email ?? "");
+    setNote(null);
+    setEditOpen(true);
+  };
+  const saveEdit = async () => {
+    if (!editName.trim()) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await patchCandidate(candidateId, {
+        full_name: editName.trim(),
+        email: editEmail.trim() || null,
+      });
+      const r = await getCandidateReport(candidateId);
+      setReport(r);
+      setEmailTo(r.candidate.email ?? "");
+      setEditOpen(false);
+      setNote({ ok: true, text: "Candidate updated." });
+    } catch (e: unknown) {
+      setNote({ ok: false, text: e instanceof ApiError ? e.message : "Could not update the candidate." });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const confirmDelete = async () => {
+    setBusy(true);
+    try {
+      await deleteCandidate(candidateId);
+      router.push(`/hire/${jobId}`);
+    } catch (e: unknown) {
+      setBusy(false);
+      setDeleteOpen(false);
+      setNote({ ok: false, text: e instanceof ApiError ? e.message : "Could not delete the candidate." });
     }
   };
 
@@ -171,6 +221,36 @@ export default function CandidatePage({
             </div>
             {/* Actions hide on print — they aren't part of the deliverable. */}
             <div className="flex items-center gap-2 print:hidden">
+              <button
+                onClick={openEdit}
+                aria-label="Edit candidate"
+                title="Edit candidate"
+                className="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => { setDeleteOpen(true); setNote(null); }}
+                aria-label="Delete candidate"
+                title="Delete candidate"
+                className="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 bg-white text-slate-500 shadow-sm transition hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                </svg>
+              </button>
+              <a href={`/api/report/${candidateId}.pdf?inline=1`} target="_blank" rel="noopener noreferrer" className={btnSecondary}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <path d="M15 3h6v6" /><path d="M10 14 21 3" />
+                </svg>
+                Open report
+              </a>
               <button onClick={download} disabled={downloading} className={btnSecondary}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" />
@@ -362,10 +442,73 @@ export default function CandidatePage({
           )}
         </Section>
 
+        {/* Self-reported skills & software — shown only when the candidate provided any. */}
+        {(candidate.skills?.length || candidate.software?.length) ? (
+          <Section step={3} title="Skills & software">
+            <div className="flex flex-col gap-5">
+              {candidate.skills?.length ? <Pills title="Skills" items={candidate.skills} /> : null}
+              {candidate.software?.length ? <Pills title="Software" items={candidate.software} /> : null}
+            </div>
+          </Section>
+        ) : null}
+
         <p className="mt-6 text-center text-[11px] text-slate-400 print:mt-4">
           Independent assessment — not affiliated with The Predictive Index.
         </p>
       </div>
+
+      {editOpen && (
+        <ConfirmDialog
+          title="Edit candidate"
+          confirmLabel="Save changes"
+          busyLabel="Saving…"
+          busy={busy}
+          confirmDisabled={!editName.trim()}
+          onConfirm={saveEdit}
+          onCancel={() => setEditOpen(false)}
+        >
+          <div className="flex flex-col gap-3">
+            <label className="text-xs font-semibold text-slate-600">
+              Name
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className={`mt-1 block w-full ${inputCls}`}
+                placeholder="Full name"
+                autoFocus
+              />
+            </label>
+            <label className="text-xs font-semibold text-slate-600">
+              Email <span className="font-normal text-slate-400">(optional)</span>
+              <input
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                type="email"
+                className={`mt-1 block w-full ${inputCls}`}
+                placeholder="name@example.com"
+              />
+            </label>
+          </div>
+        </ConfirmDialog>
+      )}
+
+      {deleteOpen && (
+        <ConfirmDialog
+          title="Delete this candidate?"
+          destructive
+          confirmLabel="Delete candidate"
+          busyLabel="Deleting…"
+          busy={busy}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteOpen(false)}
+          message={
+            <>
+              <span className="font-semibold">{candidate.full_name}</span> and all of their
+              assessment results will be permanently removed. This can&apos;t be undone.
+            </>
+          }
+        />
+      )}
     </Frame>
   );
 }
@@ -383,6 +526,24 @@ function Bullets({ title, items, dot }: { title: string; items: string[]; dot: s
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function Pills({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{title}</p>
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {items.map((t, i) => (
+          <span
+            key={`${t}-${i}`}
+            className="inline-flex items-center rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700 ring-1 ring-inset ring-sky-200"
+          >
+            {t}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

@@ -40,6 +40,7 @@ def is_public_path(path: str, method: str) -> bool:
       - CORS preflight (OPTIONS)
       - anything outside /api/* (Next.js pages gate themselves client-side)
       - the candidate assessment flow (tokenized link, no login)
+      - the public-by-URL candidate report (JSON + .pdf, keyed by UUID)
       - health + the public config the login client needs to boot
     """
     if method.upper() == "OPTIONS":
@@ -47,6 +48,8 @@ def is_public_path(path: str, method: str) -> bool:
     if not path.startswith("/api/"):
         return True
     if path.startswith("/api/assess/"):
+        return True
+    if path.startswith("/api/report/"):
         return True
     return path in _PUBLIC_PATHS
 

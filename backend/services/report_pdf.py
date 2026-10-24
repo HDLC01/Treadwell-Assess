@@ -55,7 +55,7 @@ class _Report(FPDF):
     def header(self):
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*SKY)
-        self.cell(0, 6, "TREADWELL ASSESS", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        self.cell(0, 6, "ASSESS", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self.set_draw_color(*TRACK)
         self.line(self.l_margin, self.get_y() + 1, self.w - self.r_margin, self.get_y() + 1)
         self.ln(3)

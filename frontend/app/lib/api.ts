@@ -182,7 +182,7 @@ export interface CognitiveReportBlock {
 }
 
 export interface CandidateReport {
-  candidate: { id: string; full_name: string; email: string | null; bookmarked: boolean };
+  candidate: { id: string; full_name: string; email: string | null; bookmarked: boolean; skills?: string[]; software?: string[] };
   job: {
     id: string;
     name: string;
@@ -197,10 +197,16 @@ export interface CandidateReport {
 
 // ── candidate flow ──────────────────────────────────────────────────────────
 export const getAssessment = (token: string) => request<AssessmentMeta>(`/assess/${token}`);
-export const startAssessment = (token: string, full_name: string, email: string) =>
+export const startAssessment = (
+  token: string,
+  full_name: string,
+  email: string,
+  skills: string[],
+  software: string[],
+) =>
   request<{ candidate_id: string }>(`/assess/${token}/start`, {
     method: "POST",
-    body: JSON.stringify({ full_name, email: email || null }),
+    body: JSON.stringify({ full_name, email: email || null, skills, software }),
   });
 export const submitBehavioral = (
   token: string,
@@ -303,10 +309,22 @@ export const getAssistantConversation = (id: string) =>
   request<{ id: string; title: string; messages: AssistantMessage[] }>(`/assistant/conversations/${id}`);
 export const deleteAssistantConversation = (id: string) =>
   request<{ ok: boolean }>(`/assistant/conversations/${id}`, { method: "DELETE" });
-export const patchCandidate = (id: string, patch: { bookmarked?: boolean }) =>
-  request<{ ok: boolean }>(`/candidates/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+export const patchCandidate = (
+  id: string,
+  patch: { bookmarked?: boolean; full_name?: string; email?: string | null },
+) => request<{ ok: boolean }>(`/candidates/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+export const deleteCandidate = (id: string) =>
+  request<{ ok: boolean }>(`/candidates/${id}`, { method: "DELETE" });
 export const getCandidateReport = (id: string) =>
   request<CandidateReport>(`/candidates/${id}/report`);
+
+// ── public report (no login — shared by URL, keyed by the candidate UUID) ─────
+// Same shape as the employer report; the backend exposes it on /report/* and
+// allowlists it in is_public_path, so no Authorization header is needed here.
+export const getPublicReport = (id: string) =>
+  request<CandidateReport>(`/report/${id}`);
+// Public PDF is plain GET (no auth header), so a direct link/download works.
+export const publicReportPdfUrl = (id: string) => `/api/report/${id}.pdf`;
 export const emailReport = (id: string, to: string) =>
   request<{ ok: boolean; sent_to: string }>(`/candidates/${id}/email`, {
     method: "POST",

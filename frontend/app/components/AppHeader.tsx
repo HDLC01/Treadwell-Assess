@@ -72,7 +72,7 @@ export default function AppHeader() {
           className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
         >
           <Bullseye />
-          <span className="text-sm font-extrabold tracking-tight text-slate-900">Treadwell Assess</span>
+          <span className="text-sm font-extrabold tracking-tight text-slate-900">Assess</span>
         </Link>
 
         {/* desktop nav */}

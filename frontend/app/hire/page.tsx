@@ -1,10 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { createJob, deleteJob, listJobs, updateJob, type JobSummary } from "../lib/api";
+import { createJob, deleteJob, getOrCreateLink, listJobs, updateJob, type JobSummary } from "../lib/api";
 import AppHeader from "../components/AppHeader";
 import { btnPrimary, btnSecondary, card, inputCls } from "../lib/ui";
+
+// Priority/highlighted jobs are flagged purely client-side (no backend column),
+// persisted as a Set of job ids in localStorage under this key.
+const STARRED_KEY = "assess.hire.starred";
+const PAGE_SIZE = 25;
+
+// Per-row "Copy assessment link" — reuses the same getOrCreateLink + clipboard
+// flow as the job detail page's CopyLinkButton, scoped to one job row.
+function CopyLinkButton({ jobId, name }: { jobId: string; name: string }) {
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const copy = async () => {
+    setBusy(true);
+    try {
+      const { token } = await getOrCreateLink(jobId);
+      const url = `${window.location.origin}/a?t=${token}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      } catch {
+        window.prompt("Copy the assessment link:", url);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      onClick={copy}
+      disabled={busy}
+      aria-label={`Copy assessment link for ${name}`}
+      title="Copy assessment link"
+      className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+      {copied ? "Copied!" : "Copy assessment link"}
+    </button>
+  );
+}
 
 // Hiring Center — the jobs list. (Employer auth gates this before deploy.)
 export default function HiringCenterPage() {
@@ -19,6 +62,9 @@ export default function HiringCenterPage() {
   const [editFolder, setEditFolder] = useState("");
   const [deleting, setDeleting] = useState<JobSummary | null>(null);
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [starred, setStarred] = useState<Set<string>>(new Set());
 
   const refresh = () => {
     listJobs()
@@ -27,6 +73,63 @@ export default function HiringCenterPage() {
       .finally(() => setLoading(false));
   };
   useEffect(refresh, []);
+
+  // Load highlighted/starred job ids from localStorage (client-only).
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STARRED_KEY);
+      if (raw) setStarred(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* ignore malformed/blocked storage */
+    }
+  }, []);
+
+  const toggleStar = (id: string) => {
+    setStarred((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        window.localStorage.setItem(STARRED_KEY, JSON.stringify([...next]));
+      } catch {
+        /* storage may be unavailable — keep in-memory state regardless */
+      }
+      return next;
+    });
+  };
+
+  // Reset to page 1 whenever the search query changes.
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  // Displayed list: filter by search → sort (starred first, original order
+  // preserved within each group) → paginate.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matched = q
+      ? jobs.filter(
+          (j) =>
+            j.name.toLowerCase().includes(q) ||
+            (j.folder || "").toLowerCase().includes(q),
+        )
+      : jobs;
+    return [...matched].sort((a, b) => {
+      const sa = starred.has(a.id) ? 0 : 1;
+      const sb = starred.has(b.id) ? 0 : 1;
+      return sa - sb; // stable sort keeps existing order within each group
+    });
+  }, [jobs, query, starred]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageJobs = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page],
+  );
+  // Clamp page if the filtered set shrinks below the current page.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const add = async () => {
     if (!name.trim()) return;
@@ -102,6 +205,40 @@ export default function HiringCenterPage() {
           </div>
         )}
 
+        {!loading && !error && jobs.length > 0 && (
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="relative">
+              <svg
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search jobs"
+                aria-label="Search jobs by name or folder"
+                className={`w-64 pl-9 ${inputCls}`}
+              />
+            </div>
+            {query.trim() && (
+              <span className="text-xs text-slate-400">
+                {filtered.length} match{filtered.length === 1 ? "" : "es"}
+              </span>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className={`flex flex-col divide-y divide-slate-100 ${card}`}>
             {[0, 1, 2].map((i) => (
@@ -126,14 +263,46 @@ export default function HiringCenterPage() {
               + New job
             </button>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className={`px-6 py-12 text-center ${card}`}>
+            <p className="text-sm font-semibold text-slate-700">No matching jobs</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+              Nothing matches &ldquo;{query.trim()}&rdquo;. Try a different search.
+            </p>
+          </div>
         ) : (
           <div className={`overflow-hidden ${card}`}>
-            {jobs.map((j) => (
+            {pageJobs.map((j) => {
+              const isStarred = starred.has(j.id);
+              return (
               <div
                 key={j.id}
-                className="group flex items-center gap-4 border-b border-slate-100 px-5 py-4 transition last:border-0 hover:bg-slate-50"
+                className={`group flex items-center gap-4 border-b px-5 py-4 transition last:border-0 ${
+                  isStarred
+                    ? "border-amber-100 bg-amber-50/50 hover:bg-amber-50"
+                    : "border-slate-100 hover:bg-slate-50"
+                }`}
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-sky-50 text-sm font-extrabold text-sky-600 ring-1 ring-sky-100">
+                <button
+                  onClick={() => toggleStar(j.id)}
+                  aria-pressed={isStarred}
+                  aria-label={isStarred ? `Unstar ${j.name}` : `Star ${j.name}`}
+                  title={isStarred ? "Unstar (remove priority)" : "Star (flag as priority)"}
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-md text-lg leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                    isStarred
+                      ? "text-amber-500 hover:text-amber-600"
+                      : "text-slate-300 hover:text-slate-500"
+                  }`}
+                >
+                  {isStarred ? "★" : "☆"}
+                </button>
+                <span
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm font-extrabold ring-1 ${
+                    isStarred
+                      ? "bg-amber-100 text-amber-700 ring-amber-200"
+                      : "bg-sky-50 text-sky-600 ring-sky-100"
+                  }`}
+                >
                   {j.name.slice(0, 1).toUpperCase()}
                 </span>
                 {editingId === j.id ? (
@@ -178,6 +347,7 @@ export default function HiringCenterPage() {
                       </p>
                     </Link>
                     <div className="flex items-center gap-1">
+                      <CopyLinkButton jobId={j.id} name={j.name} />
                       <button
                         onClick={() => startEdit(j)}
                         aria-label={`Edit ${j.name}`}
@@ -211,7 +381,35 @@ export default function HiringCenterPage() {
                   </>
                 )}
               </div>
-            ))}
+              );
+            })}
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+              <span>
+                Showing <span className="font-semibold tabular-nums text-slate-700">{pageJobs.length}</span> of{" "}
+                <span className="font-semibold tabular-nums text-slate-700">{filtered.length}</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  aria-label="Previous page"
+                  className="grid h-8 w-8 place-items-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+                >
+                  ‹
+                </button>
+                <span className="tabular-nums">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  aria-label="Next page"
+                  className="grid h-8 w-8 place-items-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>

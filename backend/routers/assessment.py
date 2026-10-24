@@ -31,6 +31,8 @@ MIN_WORDS_PER_CHECKLIST = 6  # below this the result isn't meaningful
 class StartBody(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
     email: Optional[str] = Field(default=None, max_length=320)
+    skills: List[str] = Field(default_factory=list)
+    software: List[str] = Field(default_factory=list)
 
 
 class BehavioralBody(BaseModel):
@@ -48,6 +50,24 @@ class CognitiveBody(BaseModel):
     candidate_id: str
     answers: List[CogAnswer]
     expired: bool = False            # True when the timer ran out (auto-submit)
+
+
+def _clean_chips(values: Optional[List[str]], cap: int = 40) -> List[str]:
+    """Trim, drop empties, de-dupe (case-insensitive, first wins), cap len + count."""
+    out: List[str] = []
+    seen: set[str] = set()
+    for v in values or []:
+        s = (v or "").strip()[:80]
+        if not s:
+            continue
+        k = s.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(s)
+        if len(out) >= cap:
+            break
+    return out
 
 
 def _get_link(conn, token: str):
@@ -89,13 +109,42 @@ def get_assessment(token: str):
 
 @router.post("/assess/{token}/start")
 def start_assessment(token: str, body: StartBody):
+    # Email is required and is the dedupe key: one attempt per person per role.
+    email = (body.email or "").strip().lower()
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=422, detail="A valid email is required.")
+    skills = _clean_chips(body.skills)
+    software = _clean_chips(body.software)
     with connect() as conn:
         link = _get_link(conn, token)
+        existing = conn.execute(
+            text("select c.id, "
+                 "  exists(select 1 from behavioral_results br where br.candidate_id = c.id) as has_behavioral, "
+                 "  exists(select 1 from cognitive_results cr where cr.candidate_id = c.id) as has_cognitive "
+                 "from candidates c "
+                 "where c.job_id = :j and lower(c.email) = :e "
+                 "order by c.created_at desc limit 1"),
+            {"j": link["job_id"], "e": email},
+        ).mappings().first()
+        if existing is not None:
+            # Already took it (any result on file) -> block the retake.
+            if existing["has_behavioral"] or existing["has_cognitive"]:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This email has already completed the assessment for this role.",
+                )
+            # Bare row from an abandoned/refreshed start -> reuse it, refresh fields.
+            conn.execute(
+                text("update candidates set full_name = :n, skills = :sk, software = :sw where id = :id"),
+                {"n": body.full_name.strip(), "sk": json.dumps(skills),
+                 "sw": json.dumps(software), "id": existing["id"]},
+            )
+            return {"candidate_id": str(existing["id"])}
         row = conn.execute(
-            text("insert into candidates (job_id, link_id, full_name, email) "
-                 "values (:j, :l, :n, :e) returning id"),
-            {"j": link["job_id"], "l": link["id"], "n": body.full_name.strip(),
-             "e": (body.email or "").strip().lower() or None},
+            text("insert into candidates (job_id, link_id, full_name, email, skills, software) "
+                 "values (:j, :l, :n, :e, :sk, :sw) returning id"),
+            {"j": link["job_id"], "l": link["id"], "n": body.full_name.strip(), "e": email,
+             "sk": json.dumps(skills), "sw": json.dumps(software)},
         ).first()
     return {"candidate_id": str(row[0])}
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import uuid
 from typing import Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -41,6 +42,8 @@ class JobUpdate(BaseModel):
 
 class CandidatePatch(BaseModel):
     bookmarked: Optional[bool] = None
+    full_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    email: Optional[str] = Field(default=None, max_length=320)
 
 
 def _validate_target(target: Dict) -> Dict:
@@ -403,11 +406,32 @@ def patch_candidate(candidate_id: str, body: CandidatePatch):
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         return {"ok": True}
+    if "bookmarked" in fields:
+        fields["bookmarked"] = bool(fields["bookmarked"])
+    if "full_name" in fields:
+        name = (fields["full_name"] or "").strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="Name cannot be empty.")
+        fields["full_name"] = name
+    if "email" in fields:
+        fields["email"] = (fields["email"] or "").strip() or None
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["candidate_id"] = candidate_id
     with connect() as conn:
         res = conn.execute(
-            text("update candidates set bookmarked = :b where id = :c"),
-            {"b": bool(fields.get("bookmarked")), "c": candidate_id},
+            text(f"update candidates set {sets} where id = :candidate_id"), fields
         )
+        if res.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+    return {"ok": True}
+
+
+@router.delete("/candidates/{candidate_id}")
+def delete_candidate(candidate_id: str):
+    """Delete a candidate and everything under them (behavioral_results and
+    cognitive_results cascade via ON DELETE CASCADE in the schema)."""
+    with connect() as conn:
+        res = conn.execute(text("delete from candidates where id = :c"), {"c": candidate_id})
         if res.rowcount == 0:
             raise HTTPException(status_code=404, detail="Candidate not found")
     return {"ok": True}
@@ -420,8 +444,12 @@ class EmailBody(BaseModel):
 
 def _build_report(conn, candidate_id: str) -> Optional[Dict]:
     """Assemble the full per-candidate report used by the detail page, PDF, and email."""
+    try:
+        uuid.UUID(str(candidate_id))
+    except (ValueError, TypeError):
+        return None  # malformed id -> treat as not found (avoids a DB uuid-cast 500)
     cand = conn.execute(text(
-        "select c.id, c.full_name, c.email, c.bookmarked, c.created_at, "
+        "select c.id, c.full_name, c.email, c.bookmarked, c.skills, c.software, c.created_at, "
         "       j.id as job_id, j.name as job_name, j.behavioral_target, j.cognitive_target "
         "from candidates c join jobs j on j.id = c.job_id where c.id = :c"
     ), {"c": candidate_id}).mappings().first()
@@ -494,6 +522,8 @@ def _build_report(conn, candidate_id: str) -> Optional[Dict]:
         "candidate": {
             "id": str(cand["id"]), "full_name": cand["full_name"],
             "email": cand["email"], "bookmarked": cand["bookmarked"],
+            "skills": cand["skills"] if isinstance(cand["skills"], list) else json.loads(cand["skills"] or "[]"),
+            "software": cand["software"] if isinstance(cand["software"], list) else json.loads(cand["software"] or "[]"),
         },
         "job": {
             "id": str(cand["job_id"]), "name": cand["job_name"],
@@ -534,6 +564,40 @@ def candidate_report_pdf(candidate_id: str):
     )
 
 
+# ─── public report (no login — keyed by the candidate's unguessable UUID) ──────
+# Mirrors the candidate flow (/api/assess/*) and media: public-by-URL, not gated.
+# Reuses the SAME _build_report / report_pdf as the employer endpoints above, so a
+# shared link shows exactly what the employer sees. Added to is_public_path so the
+# auth gate lets these through; see backend/auth_supabase.py.
+# NOTE: the .pdf route MUST be declared before the bare {candidate_id} route —
+# otherwise "/report/<id>.pdf" is captured by the JSON route with candidate_id
+# ending in ".pdf" (an invalid UUID), which 500s instead of serving the PDF.
+@router.get("/report/{candidate_id}.pdf")
+def public_report_pdf(candidate_id: str, inline: bool = Query(False)):
+    with connect() as conn:
+        report = _build_report(conn, candidate_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    pdf = report_pdf.build_report_pdf(report)
+    fname = _pdf_filename(report["candidate"]["full_name"])
+    # inline=1 -> render in the browser tab ("Open report"); default -> download.
+    disposition = "inline" if inline else "attachment"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'{disposition}; filename="{fname}"'},
+    )
+
+
+@router.get("/report/{candidate_id}")
+def public_report(candidate_id: str):
+    with connect() as conn:
+        report = _build_report(conn, candidate_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    return report
+
+
 @router.post("/candidates/{candidate_id}/email")
 def email_candidate_report(candidate_id: str, body: EmailBody):
     to = body.to.strip()
@@ -551,7 +615,7 @@ def email_candidate_report(candidate_id: str, body: EmailBody):
             to=to,
             subject=f"Assessment report — {name} ({report['job']['name']})",
             body_text=(
-                f"Attached is the Treadwell Assess report for {name} "
+                f"Attached is the Assess report for {name} "
                 f"(role: {report['job']['name']}).\n\n"
                 "Independent assessment - not affiliated with The Predictive Index."
             ),

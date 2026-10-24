@@ -29,18 +29,18 @@ function LoginInner() {
             </svg>
           </span>
           <span className="text-sm font-bold uppercase tracking-[0.3em] text-slate-400">
-            Treadwell Assess
+            Assess
           </span>
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight">Hiring Center sign in</h1>
         <p className="text-sm text-slate-400">
-          For Treadwell staff. Use your <span className="font-medium text-slate-200">@{allowedDomain}</span>{" "}
+          For staff. Use your <span className="font-medium text-slate-200">@{allowedDomain}</span>{" "}
           Google account.
         </p>
 
         {denied && (
           <p className="w-full rounded-lg border border-red-900 bg-red-950/50 px-4 py-2 text-sm text-red-300">
-            That isn&apos;t a @{allowedDomain} account. Please use your Treadwell Google account.
+            That isn&apos;t a @{allowedDomain} account. Please use your organization Google account.
           </p>
         )}
 
