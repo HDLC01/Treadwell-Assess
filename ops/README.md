@@ -1,11 +1,13 @@
 # Ops — Treadwell Assess (VPS)
 
-App lives at `/opt/treadwell-assess` on the shared VPS (50.6.110.215). SSH in with
-the `treadwell_vps` key:
+App lives at `/opt/treadwell-assess` on the shared VPS. SSH in through the
+`treadwell-vps` alias in `~/.ssh/config`:
 
 ```bash
-ssh root@50.6.110.215
+ssh treadwell-vps
 ```
+
+The alias logs in as `hanztwell`; the box runs every command as root via sudo.
 
 Stack: `web` (Next.js) → `127.0.0.1:8896`, `api` (FastAPI) → `127.0.0.1:8897`,
 `db` (Postgres, internal). nginx routes `assess.wetreadwell.com` → `/` web, `/api` api,
