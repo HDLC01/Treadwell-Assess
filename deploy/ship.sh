@@ -6,15 +6,20 @@
 # the images HERE, ship them over SSH, and the VPS only loads + restarts — no
 # build, no CPU storm.
 #
-# Prereqs: local Docker engine running; SSH key at ~/.ssh/treadwell_vps.
+# Prereqs: local Docker engine running; the `treadwell-vps` alias in ~/.ssh/config.
+#          The alias supplies the host, port, user and key. It logs in as hanztwell,
+#          and the box runs every command (and this script's stdin) as root via sudo.
 # Usage:   bash deploy/ship.sh
+#          VPS_HOST / VPS_USER / SSH_KEY still override the target if ever needed.
 set -euo pipefail
 
-VPS_HOST="${VPS_HOST:-50.6.110.215}"
-VPS_USER="${VPS_USER:-root}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/treadwell_vps}"
+VPS_HOST="${VPS_HOST:-treadwell-vps}"
+VPS_USER="${VPS_USER:-}"
+SSH_KEY="${SSH_KEY:-}"
 APP_DIR="/opt/treadwell-assess"
-SSH=(ssh -i "$SSH_KEY" -o ConnectTimeout=20 "${VPS_USER}@${VPS_HOST}")
+SSH=(ssh -o ConnectTimeout=20)
+if [ -n "$SSH_KEY" ]; then SSH+=(-i "$SSH_KEY"); fi
+SSH+=("${VPS_USER:+${VPS_USER}@}${VPS_HOST}")
 
 cd "$(dirname "$0")/.."
 
